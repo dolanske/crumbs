@@ -21,9 +21,5 @@ export const router = createRouter([
   },
 ])
 
-router.onRouteResolve('/other', () => {
-
-})
-
 router.start('#app')
 // router.replace('/main')

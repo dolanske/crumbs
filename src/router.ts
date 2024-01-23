@@ -91,9 +91,9 @@ export class Router<R extends Route[]> {
 
       // Append to history
       if (replace)
-        history.replaceState(this.currentRoute, '', route.path)
+        history.replaceState({}, '', route.path)
       else
-        history.pushState(this.currentRoute, '', route.path)
+        history.pushState({}, '', route.path)
 
       // Rerun register to make newly rendered links work
       this.#registerLinks()
