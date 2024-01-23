@@ -1,9 +1,15 @@
 export interface Route {
   title?: string
-  file: string | (() => Promise<string>)
+  template: string | (() => Promise<string>)
   path: string
   default?: boolean
-  loader?: <T>() => Promise<T>
+  loader?: <T = any>(params: object) => Promise<T>
+  onRender?: () => void
 }
 
-export type GenericRouteCallback = (current: Route) => void
+export type RenderedRoute = Route & {
+  html: Element | null
+  data: any
+}
+
+export type GenericRouteCallback = (current: RenderedRoute) => void
