@@ -15,6 +15,7 @@ interface SerializedRoute extends Route {
 
 // The currently active route
 interface ResolvedRoute extends Route {
+  path: string
   renderedHtml: Element
   resolvedPath: string
   params?: object
@@ -230,6 +231,7 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
     // 4. set currentRoute variable
     currentRoute = {
       ...route,
+      path,
       resolvedPath,
       renderedHtml,
       params,
@@ -247,6 +249,7 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       document.title = route.title
 
     // 7. onRouteResolve() callback run
+    runOnRouteResolveCallbacks(currentRoute)
 
     // 8. Resolve
     resolve(currentRoute)
@@ -263,9 +266,9 @@ type OnNavigationCbFn = (route: SerializedRoute) => void | boolean
 const onPathNavigationCbs: Record<string, Set<OnNavigationCb>> = {}
 const onNavigationCbs = new Set<OnNavigationCb>()
 
-export function onNavigation(path: OnNavigationCbFn): void
-export function onNavigation(path: string, cb: OnNavigationCbFn): void
-export function onNavigation(path: string | OnNavigationCbFn, cb?: OnNavigationCbFn) {
+function onNavigation(path: OnNavigationCbFn): void
+function onNavigation(path: string, cb: OnNavigationCbFn): void
+function onNavigation(path: string | OnNavigationCbFn, cb?: OnNavigationCbFn) {
   if (typeof path === 'string') {
     if (!cb)
       return
@@ -291,12 +294,27 @@ function runOnNavigationCallbacks(route: SerializedRoute): boolean | void {
 }
 
 // On route resolve, ran after route has been successfully navigated to
-function onRouteResolve(path: string, cb: (route: ResolvedRoute) => void) {
+const onRouteResolveCbs: Record<string, Set<OnNavigationCb<ResolvedRoute>>> = {}
 
+function onRouteResolve(path: string, cb: (route: ResolvedRoute) => void) {
+  if (!onRouteResolveCbs[path])
+    onRouteResolveCbs[path] = new Set()
+  onRouteResolveCbs[path].add(cb)
 }
 
+function runOnRouteResolveCallbacks(route: ResolvedRoute): void {
+  const routeUpdates = onRouteResolveCbs[route.path]
+  if (routeUpdates.size > 0) {
+    for (const cb of routeUpdates)
+      cb(route)
+  }
+}
+
+// Public API
 export {
   defineRouter,
+  onRouteResolve,
+  onNavigation,
   navigate,
   getRoute,
   getRouterRoot,
