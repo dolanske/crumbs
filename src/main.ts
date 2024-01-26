@@ -1,25 +1,19 @@
-import { createRouter } from './router'
+import { defineRouter } from './router'
 
 import main from './routes/main.html?raw'
 import other from './routes/other.html?raw'
 
-export const router = createRouter([
-  {
-    path: '/main',
-    template: main,
-    default: true,
-  },
-  {
-    path: '/other',
-    template: other,
-    title: 'Hello other',
-    async loader() {
-      return fetch('https://swapi.dev/api/people')
+const routes = {
+  '/': main,
+  '/users': '<span>User list</span>',
+  '/user/:id': {
+    html: other,
+    async loader({ id }: { id: number }) {
+      return fetch(`https://swapi.dev/api/people/${id}`)
         .then(r => r.json())
         .then(d => d)
     },
   },
-])
+}
 
-router.start('#app')
-// router.replace('/main')
+defineRouter(routes).run('#app')

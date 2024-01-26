@@ -1,257 +1,303 @@
-import type { ExtractPaths, Narrow } from './type-helpers'
-import type { GenericRouteCallback, RenderedRoute, Route } from './types'
+// Initial user input
+interface Route {
+  title?: string
+  html: string
+  loader?: (params: any) => Promise<any>
+  default?: boolean
+  lazy?: boolean
+}
 
-export function importRoute(path: string): () => Promise<string> {
-  return async () => {
-    return import(`${path}?raw`)
-      .then(value => value.default)
-      .catch(() => null)
+// Serialized route after router has been initialized
+interface SerializedRoute extends Route {
+  path: string
+  renderedHtml: Element | null
+}
+
+// The currently active route
+interface ResolvedRoute extends Route {
+  renderedHtml: Element
+  resolvedPath: string
+  params?: object
+  data: any | null
+}
+
+// Extend the native PopStateEvent with the properties which will be added when
+// users navigate to other pages using built-in browser navigation.
+declare interface PopStateEvent {
+  state: {
+    path: string
   }
 }
 
-// TODO
-// Should append parameters
-function resolvePath(route: Route) {
+type Router = Record<string, Route | string>
+
+let __baseRouter: Router = {}
+let routes: SerializedRoute[] = []
+let rootSelector: string = ''
+let currentRoute: null | ResolvedRoute
+
+// Returns the current active route
+function getRoute() {
+  return currentRoute
+}
+
+// Creates router by serializing all the provided routes and
+function defineRouter(definitions: Router) {
+  __baseRouter = definitions
+
+  const serializedRoutes: SerializedRoute[] = Object.entries(definitions).map(([path, route]) => {
+    if (typeof route === 'string') {
+      return {
+        html: route,
+        renderedHtml: parseToHtml(route),
+        path,
+      }
+    }
+
+    return {
+      ...route,
+      path,
+      renderedHtml: parseToHtml(route.html),
+    }
+  })
+
+  routes = serializedRoutes
+
+  // Register route listeners. This will execute whenever user uses the browser
+  // native navigation
+  const popstateHandler = ({ state }: PopStateEvent) => navigate(state.path)
+
   return {
-    resolvedPath: route.path,
+    /**
+     * Start the router.
+     *
+     * @param selector DOM selector
+     */
+    run: (selector: string) => {
+      rootSelector = selector
+      window.addEventListener('popstate', popstateHandler)
+      registerLinks()
+
+      // TODO Decide which route will be rendered first/
+    },
+    /**
+     * Stops the router. Navigation will no longer work.
+     */
+    stop() {
+      window.removeEventListener('popstate', popstateHandler)
+    },
+  }
+}
+
+// Converts string template into a piece of DOM
+function parseToHtml(template: string) {
+  const parser = new DOMParser()
+  const raw = parser.parseFromString(template, 'text/html')
+  return raw.body.firstElementChild!
+}
+
+// Returns the router root dom node, or crashes (as it should)
+function getRouterRoot() {
+  if (!rootSelector)
+    throw new Error('No root selector found. Did you start the router?')
+  const root = document.querySelector(rootSelector)
+  if (!root)
+    throw new Error('Invalid root node selector. Please select a valid HTML element.')
+  return root
+}
+
+// /**
+//  *
+//  */
+
+type FindRouteOptions = Record<'path', string> | Record<'title', string> | Record<'startsWith', string> | Record<'html', string> | Record<'enderedHtml', Element>
+
+function findRoute(option: FindRouteOptions): Route | undefined {
+  const [key, value] = Object.entries(option)[0]
+
+  return routes.find((r) => {
+    switch (key) {
+      case 'path':
+      case 'html':
+      case 'title': {
+        return r[key] === value
+      }
+
+      case 'startsWith': {
+        return r.path.startsWith(value)
+      }
+
+      case 'renderedHtml': {
+        return r.renderedHtml?.isEqualNode(value)
+      }
+
+      default: {
+        return null
+      }
+    }
+  })
+}
+
+/**
+ * Checks wether two paths are matching. A path is matching, if it's dynamic
+ * parameter definitions are matching that of a path, which has them replaced
+ * with actual values.
+ *
+ * For example `/main/users/:id` should match with `/main/users/10` and so on...
+ *
+ */
+// TODO
+function isMatching(source: string, path: string) {
+  return true
+}
+
+// TODO
+function resolvePath(path: string): {
+  resolvedPath: string
+  path: string
+  params: {}
+} {
+  // 1. Match against a base path and return route
+  // 2. Extract parameters into an object
+
+  const realPath = routes.find(r => isMatching(r.path, path))
+
+  return {
+    resolvedPath: '',
+    path: '',
     params: {},
   }
 }
 
 /**
- * Router instance. It is recommended to export the created instance and import
- * it in components and part of the application, where routing should be
- * handled.
+ * Registers any <a link> elements within the rendered route. Clicking these
+ * links will ignore the default behaviour and instead call `push` on the router
+ * instance.
  *
- * @param routes
- * @returns Router instance
  */
-export function createRouter<R extends Route[]>(routes: Narrow<R>) {
-  return new Router(routes)
+function registerLinks() {
+  const root = getRouterRoot()
+  const links = root.querySelectorAll('a[link]')
+
+  for (const link of links) {
+    const href = link.getAttributeNode('href')?.value
+    if (!href)
+      continue
+
+    const isMatch = routes.some(r => isMatching(r.path, href))
+
+    if (isMatch) {
+      // When links are garbage collected, event listeners are automatically
+      // removed, so this does not need a stopper function.
+      link.addEventListener('click', (event: Event) => {
+        event.preventDefault()
+        navigate(href)
+      })
+    }
+  }
 }
 
-export class Router<R extends Route[]> {
-  currentRoute?: RenderedRoute
-  baseRoutes: Narrow<R>
-  isLoading: boolean = false
+// TODO
+async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute | null> {
+  // eslint-disable-next-line no-async-promise-executor
+  return new Promise(async (resolve, reject) => {
+    // 1. Resolve path
+    const {
+      resolvedPath,
+      params,
+    } = resolvePath(path)
 
-  // @ts-expect-error This does not have an initialized, as the router can be
-  // initialized asynchronously by calling router.start whenever needed. Actual
-  // router usage should always be called AFTER the router has been initialized.
-  root: Element
-
-  // store callbacks
-  #onNavigationCb: Set<GenericRouteCallback> = new Set()
-  #onRouteResolveCb: Record<string, Set<GenericRouteCallback>> = Object.create(null)
-
-  constructor(routes: Narrow<R>) {
-    if (!routes || routes.length === 0)
-      throw new Error('You need to provide at least 1 route')
-
-    this.baseRoutes = routes
-  }
-
-  // Renders the HTML template provided with a route
-  async #renderRoute(route: Route, replace: boolean = false) {
-    // eslint-disable-next-line no-async-promise-executor
-    return new Promise(async (resolve, reject) => {
-      const unresolvedPath = route.path
-      const { resolvedPath, params } = resolvePath(route)
-      let data: any = null
-
-      if (route.loader) {
-        data = await route.loader(params)
-          .then(res => res)
-          // If loader fails, we throw an error and navigate to 404 if its defined
-          .catch((e) => {
-            reject(e)
-            return null
-          })
-      }
-
-      const parser = new DOMParser()
-      let template = route.template
-      if (typeof template !== 'string')
-        template = await template()
-
-      const html = parser.parseFromString(template, 'text/html')
-      const el = html.body.firstElementChild!
-
-      this.root.replaceChildren(el)
-      this.currentRoute = Object.assign(route, {
-        path: resolvedPath,
-        template,
-        html: el,
-        data,
-      })
-
-      // Set title
-      if (route.title)
-        document.title = route.title
-
-      // Append to history
-      if (replace)
-        history.replaceState({}, '', route.path)
-      else
-        history.pushState({}, '', route.path)
-
-      // Rerun register to make newly rendered links work
-      this.#registerLinks()
-
-      if (route.onRender)
-        route.onRender()
-
-      this.#updateOnNavigationCb()
-      this.#updateOnRouteResolveCb(unresolvedPath)
-
-      resolve(this.currentRoute)
-    })
-  }
-
-  /**
-   * Registers any <a link> elements within the rendered route. Clicking these
-   * links will ignore the default behaviour and instead call `push` on the
-   * router instance.
-   *
-   * @private
-   *
-   */
-  #registerLinks() {
-    const links = this.root.querySelectorAll('a[link]')
-
-    for (const link of links) {
-      const href = link.getAttributeNode('href')?.value
-      if (href && this.baseRoutes.some(r => r.path === href)) {
-        link.addEventListener('click', (event: Event) => {
-          event.preventDefault()
-          this.navigate(href)
-        })
-      }
-    }
-  }
-
-  // Handle browser navigation events
-  #registerListeners() {
-    window.addEventListener('popstate', (event) => {
-      console.log('[Popstate event]', event)
-      this.#renderRoute(event.state, true)
-    })
-  }
-
-  /**
-   * Check if the current location is within the defind routes. Also check if
-   * any routes have the `default` prop on them, because those will be set in
-   * case the current location is `/`.
-   */
-  #setDefaultRoute() {
-    const currentPath = location.pathname
-
-    if (currentPath !== '/') {
-      const match = this.baseRoutes.find(r => r.path === currentPath)
-
-      if (match) {
-        this.#renderRoute(match)
-        return
-      }
-    }
-    const defaultRoute = this.baseRoutes.find(r => r.default) ?? this.baseRoutes[0]
-    this.#renderRoute(defaultRoute, true)
-  }
-
-  ////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////
-  // Callback updates
-
-  /**
-   * Executes given callback whenever a new page has been succesfully navigated
-   * to. Runs after the loader has been resolved.
-   *
-   * @param cb Callback
-   * @returns Callabck stopper
-   */
-  onNavigation(cb: GenericRouteCallback) {
-    this.#onNavigationCb.add(cb)
-    return () => this.#onNavigationCb.delete(cb)
-  }
-
-  #updateOnNavigationCb() {
-    for (const cb of this.#onNavigationCb)
-      cb(this.currentRoute!)
-  }
-
-  /**
-   * Executes given callback, whenever the provided route path is navigated to and resolved.
-   *
-   * @param path Route path
-   * @param cb Callback
-   * @returns Callback stopper
-   */
-  onRouteResolve(path: ExtractPaths<R>, cb: GenericRouteCallback) {
-    const _path = path as string
-    if (!this.#onRouteResolveCb[_path])
-      this.#onRouteResolveCb[_path] = new Set<GenericRouteCallback>()
-
-    const paths = this.#onRouteResolveCb[_path]
-
-    paths.add(cb)
-    return () => paths.delete(cb)
-  }
-
-  #updateOnRouteResolveCb(path: string) {
-    const routes = this.#onRouteResolveCb[path]
-    for (const cb of routes)
-      cb(this.currentRoute!)
-  }
-
-  ////////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////////
-  // Public API
-
-  /**
-   * Navigate to the provided route
-   *
-   * @param path Route path
-   */
-  async navigate(path: ExtractPaths<R>) {
-    // TODO: should match regex, as dynamic routes will NOT work (smh)
-    const route = this.baseRoutes.find(r => r.path === path)
+    const route = findRoute({ path })
     if (!route)
-      throw new Error('Invalid path. There is no route assoicated with the provided path.')
-    return this.#renderRoute(route)
+      return reject(new Error('Invalid path. Could not match route.'))
+
+    const renderedHtml = parseToHtml(route.html)
+
+    // 2. onNavigation () callback run
+    // If callback returns false, the navigation is cancelled
+    const result = runOnNavigationCallbacks({ ...route, path, renderedHtml })
+    if (result === false)
+      resolve(null)
+
+    // 3. Check if loader has data
+    let data
+    if (route.loader) {
+      data = await route.loader(params)
+        .then(res => res)
+        .catch(e => reject(new Error(e)))
+    }
+
+    // 4. set currentRoute variable
+    currentRoute = {
+      ...route,
+      resolvedPath,
+      renderedHtml,
+      params,
+      data,
+    }
+
+    // 5. history.push / replace
+    if (replace)
+      history.replaceState({ path }, '', resolvedPath)
+    else
+      history.pushState({ path }, '', resolvedPath)
+
+    // 6. Set document title if it has it
+    if (route.title)
+      document.title = route.title
+
+    // 7. onRouteResolve() callback run
+
+    // 8. Resolve
+    resolve(currentRoute)
+  })
+}
+
+// TODO
+// onRouteResolve(path, cb) -> is ran whenever a route is resolved (loaded, loaders have returend data)
+
+// On navigation (before resolve) callback
+type OnNavigationCb<T = SerializedRoute> = (route: T) => void | boolean
+type OnNavigationCbFn = (route: SerializedRoute) => void | boolean
+
+const onPathNavigationCbs: Record<string, Set<OnNavigationCb>> = {}
+const onNavigationCbs = new Set<OnNavigationCb>()
+
+export function onNavigation(path: OnNavigationCbFn): void
+export function onNavigation(path: string, cb: OnNavigationCbFn): void
+export function onNavigation(path: string | OnNavigationCbFn, cb?: OnNavigationCbFn) {
+  if (typeof path === 'string') {
+    if (!cb)
+      return
+
+    if (!onPathNavigationCbs[path])
+      onPathNavigationCbs[path] = new Set()
+    onPathNavigationCbs[path].add(cb)
   }
-
-  // async replace(path: ExtractPaths<R>) {
-  //   // TODO: should match regex, as dynamic routes will NOT work (smh)
-  //   const route = this.baseRoutes.find(r => r.path === path)
-  //   if (!route)
-  //     throw new Error('Invalid path. There is no route assoicated with the provided path.')
-  //   this.#renderRoute(route, true)
-  // }
-
-  // async go(delta: number) {
-  //   // REVIEW
-  //   // Does this trigger popstate listeners?
-
-  //   history.go(delta)
-  // }
-
-  // reload() {
-  //   location.reload()
-  // }
-
-  /**
-   * Start the router. It is important to star the router before any usage.
-   */
-  start(rootSelector: string) {
-    const root = document.querySelector(rootSelector)
-    if (!root)
-      throw new Error('Invalid router root selector')
-    this.root = root
-
-    // Register popstate listener to handle re-rendering on browser navigation
-    this.#registerListeners()
-
-    // Find the default route
-    this.#setDefaultRoute()
+  else if (path) {
+    onNavigationCbs.add(path)
   }
+}
+
+function runOnNavigationCallbacks(route: SerializedRoute): boolean | void {
+  for (const cb of onNavigationCbs)
+    cb(route)
+
+  const routeUpdates = onPathNavigationCbs[route.path]
+  if (routeUpdates.size > 0) {
+    for (const cb of routeUpdates)
+      cb(route)
+  }
+}
+
+// On route resolve, ran after route has been successfully navigated to
+function onRouteResolve(path: string, cb: (route: ResolvedRoute) => void) {
+
+}
+
+export {
+  defineRouter,
+  navigate,
+  getRoute,
+  getRouterRoot,
 }
