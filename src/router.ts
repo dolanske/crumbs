@@ -256,9 +256,6 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
   })
 }
 
-// TODO
-// onRouteResolve(path, cb) -> is ran whenever a route is resolved (loaded, loaders have returend data)
-
 // On navigation (before resolve) callback
 type OnNavigationCb<T = SerializedRoute> = (route: T) => void | boolean
 type OnNavigationCbFn = (route: SerializedRoute) => void | boolean
