@@ -5,16 +5,19 @@ SPA router for framework-less web applications using HTML files. This library as
 ## Usage
 
 ```ts
-import { defineRouter } from './router'
+import { defineRouter } from '@dolanske/router'
 
 import main from './routes/main.html?raw'
-import other from './routes/other.html?raw'
+import user from './routes/user.html?raw'
+import errorFallback from './routes/errorFallback.html?raw'
 
 const routes = {
   '/': main,
   '/users': '<span>User list...</span>',
   '/user/:id': {
-    html: other,
+    html: user,
+    // In case loader throws, you can provide a fallback route to render instead
+    fallback: errorFallback,
     async loader({ id }: { id: number }) {
       return fetch(`https://swapi.dev/api/people/${id}`)
         .then(r => r.json())
@@ -37,8 +40,6 @@ defineRouter(routes).run('#app')
 ####  `onNavigation`
 
 ####  `onRouteResolve`
-
----
 
 ## Other
 

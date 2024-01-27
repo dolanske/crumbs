@@ -3,6 +3,10 @@ import type { ShallowReadonly } from './type-helpers'
 // Initial user input
 interface Route {
   title?: string
+  // TODO
+  // Support Element
+  // TODO
+  // Fallback Element
   html: string
   loader?: (params: any) => Promise<any>
   default?: boolean
