@@ -25,7 +25,7 @@ interface ResolvedRoute extends Route {
   renderedHtml: Element
   resolvedPath: string
   params?: object
-  data: any | null
+  data: any
 }
 
 // Extend the native PopStateEvent with the properties which will be added when
@@ -179,10 +179,29 @@ function findRoute(option: FindRouteOptions): Route | undefined {
  *
  * For example `/main/users/:id` should match with `/main/users/10` and so on...
  *
+ * @param sourcePath The originally defined path. Containing dynamic parameters as `/:param`
+ * @param pathWithValues The actual path used when navigating
+ * @returns boolean
+ *
  */
-// TODO
 function isMatching(sourcePath: string, pathWithValues: string): boolean {
-  return true
+  // In case they are the exact same strings
+  if (sourcePath === pathWithValues)
+    return true
+
+  const sourceSplit = sourcePath.split('/')
+  const valuesSplit = pathWithValues.split('/')
+
+  // Iterate over every source path segment
+  return sourceSplit.every((item, index) => {
+    // If it's dynamic, we ignore it
+    if (item.startsWith(':'))
+      return true
+
+    // If it is not dynamic, we compare segment names. We don't need to check
+    // lengths, because if they are not matching, this will return false
+    return item === valuesSplit[index]
+  })
 }
 
 // TODO
