@@ -204,28 +204,42 @@ function isMatching(sourcePath: string, pathWithValues: string): boolean {
   })
 }
 
-// TODO
 interface ResolvedPathOptions {
   resolvedPath: string
-  path: string
+  sourcePath: string
   params: object
 }
 
 // @internal
 // Takes a path, check if it is matching with any of the default paths
 // Extracts values based on the
-function resolvePath(path: string): ResolvedPathOptions {
-  // 1. Match against a base path and return route
-  // COuld utilize isMatching ?
+function resolvePath(path: string, routes: SerializedRoute[]): ResolvedPathOptions {
+  // 1. Match current path against an existing route
+  const source = routes.find(r => isMatching(r.path, path))
+  if (!source)
+    throw new Error(`No matching route found for the path "${path}"`)
+
+  // Split them by a path segment
+  const sourceSplit = source.path.split('/')
+  const pathSplit = path.split('/')
+  const params: Record<string, string> = {}
+
   // 2. Extract parameters into an object
   // /main/users/:id means we want an objet with { id: <value> } which is extracted from /main/users/10
+  for (let index = 0; index < sourceSplit.length; index++) {
+    const sourceSegment = sourceSplit[index]
+    if (!sourceSegment || !sourceSegment.startsWith(':'))
+      continue
 
-  const realPath = routes.find(r => isMatching(r.path, path))
+    const key = sourceSegment.substring(1)
+    const value = pathSplit[index]
+    params[key] = value
+  }
 
   return {
-    resolvedPath: '',
-    path: '',
-    params: {},
+    resolvedPath: path,
+    sourcePath: source.path,
+    params,
   }
 }
 
@@ -273,7 +287,7 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
     const {
       resolvedPath,
       params,
-    } = resolvePath(path)
+    } = resolvePath(path, routes)
 
     const route = findRoute({ path })
     if (!route)
@@ -408,4 +422,12 @@ export {
   navigate,
   getRoute,
   getRouterRoot,
+
+  // Other stuff
+  resolvePath,
+
+  type SerializedRoute,
+  type ResolvedRoute,
+  type Route,
+  type Router,
 }
