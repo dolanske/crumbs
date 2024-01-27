@@ -1,5 +1,11 @@
 import type { ShallowReadonly } from './type-helpers'
 
+/**
+ * TODO
+ * - Navigating to '/' reloads page (this could be also causing history issues)
+ * -
+ */
+
 // Initial user input
 interface Route {
   title?: string
@@ -267,7 +273,7 @@ function registerLinks() {
       // removed, so this does not need a stopper function.
       link.addEventListener('click', (event: Event) => {
         event.preventDefault()
-        navigate(href)
+        navigate(href, true)
       })
     }
   }
@@ -324,6 +330,11 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       history.replaceState({ path }, '', resolvedPath)
     else
       history.pushState({ path }, '', resolvedPath)
+
+    // Append route to the root
+    const root = getRouterRoot()
+    root.replaceChildren(currentRoute.renderedHtml)
+    registerLinks()
 
     // 6. Set document title if it has it
     if (route.title)
