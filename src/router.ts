@@ -1,3 +1,5 @@
+import type { ShallowReadonly } from './type-helpers'
+
 // Initial user input
 interface Route {
   title?: string
@@ -39,12 +41,12 @@ let currentRoute: null | ResolvedRoute
 
 // Returns the current active route
 function getRoute() {
-  return currentRoute
+  return structuredClone<ShallowReadonly<ResolvedRoute> | null>(currentRoute)
 }
 
 // Creates router by serializing all the provided routes and
 function defineRouter(definitions: Router) {
-  __baseRouter = definitions
+  __baseRouter = Object.freeze(definitions)
 
   const serializedRoutes: SerializedRoute[] = Object.entries(definitions).map(([path, route]) => {
     if (typeof route === 'string') {
@@ -79,7 +81,8 @@ function defineRouter(definitions: Router) {
       window.addEventListener('popstate', popstateHandler)
       registerLinks()
 
-      // TODO Decide which route will be rendered first/
+      const defaultPath = getDefaultRoute(serializedRoutes)
+      navigate(defaultPath)
     },
     /**
      * Stops the router. Navigation will no longer work.
@@ -90,15 +93,35 @@ function defineRouter(definitions: Router) {
   }
 }
 
+// @internal
+// Find the  default route path
+function getDefaultRoute(routes: SerializedRoute[]): string {
+  // 1. Look for `default` or `/` route
+  let defaultRoute: SerializedRoute | undefined
+
+  defaultRoute = routes.find(r => r.default || r.path === '/')
+  if (defaultRoute)
+    return defaultRoute.path
+
+  // 3. Pick the shortest route and return its path
+  defaultRoute = routes.sort((a, b) => a.path.length - b.path.length)[0]
+  if (defaultRoute)
+    return defaultRoute.path
+
+  // return ''
+  throw new Error('No default route found. Please define one by settings its path to `/` or adding the `default` property to the route definitions. Note, it is not possible to set dynamic routes as default routes.')
+}
+
+// @internal
 // Converts string template into a piece of DOM
-function parseToHtml(template: string) {
+function parseToHtml(template: string): Element {
   const parser = new DOMParser()
   const raw = parser.parseFromString(template, 'text/html')
   return raw.body.firstElementChild!
 }
 
 // Returns the router root dom node, or crashes (as it should)
-function getRouterRoot() {
+function getRouterRoot(): Element {
   if (!rootSelector)
     throw new Error('No root selector found. Did you start the router?')
   const root = document.querySelector(rootSelector)
@@ -107,12 +130,18 @@ function getRouterRoot() {
   return root
 }
 
-// /**
-//  *
-//  */
+function getRouterConfig() {
+  return __baseRouter as ShallowReadonly<Router>
+}
 
-type FindRouteOptions = Record<'path', string> | Record<'title', string> | Record<'startsWith', string> | Record<'html', string> | Record<'enderedHtml', Element>
+type FindRouteOptions = Record<'path', string> | Record<'title', string> | Record<'startsWith', string> | Record<'html', string> | Record<'renderedHtml', Element>
 
+/**
+ * Find a route based on some of its properties.
+ *
+ * @param option An object with a single property
+ * @returns Route | undefined
+ */
 function findRoute(option: FindRouteOptions): Route | undefined {
   const [key, value] = Object.entries(option)[0]
 
@@ -141,25 +170,32 @@ function findRoute(option: FindRouteOptions): Route | undefined {
 
 /**
  * Checks wether two paths are matching. A path is matching, if it's dynamic
- * parameter definitions are matching that of a path, which has them replaced
- * with actual values.
+ * parameter definitions are that of a path, which has them replaced with actual
+ * values.
  *
  * For example `/main/users/:id` should match with `/main/users/10` and so on...
  *
  */
 // TODO
-function isMatching(source: string, path: string) {
+function isMatching(sourcePath: string, pathWithValues: string): boolean {
   return true
 }
 
 // TODO
-function resolvePath(path: string): {
+interface ResolvedPathOptions {
   resolvedPath: string
   path: string
-  params: {}
-} {
+  params: object
+}
+
+// @internal
+// Takes a path, check if it is matching with any of the default paths
+// Extracts values based on the
+function resolvePath(path: string): ResolvedPathOptions {
   // 1. Match against a base path and return route
+  // COuld utilize isMatching ?
   // 2. Extract parameters into an object
+  // /main/users/:id means we want an objet with { id: <value> } which is extracted from /main/users/10
 
   const realPath = routes.find(r => isMatching(r.path, path))
 
@@ -171,10 +207,12 @@ function resolvePath(path: string): {
 }
 
 /**
+ *
  * Registers any <a link> elements within the rendered route. Clicking these
  * links will ignore the default behaviour and instead call `push` on the router
  * instance.
  *
+ * @internal
  */
 function registerLinks() {
   const root = getRouterRoot()
@@ -198,7 +236,13 @@ function registerLinks() {
   }
 }
 
-// TODO
+/**
+ * Navigate to the provided path.
+ *
+ * @param path Path to navigate to
+ * @param replace {optional} Wether to append a new history entry or replace the current one
+ * @returns Promise, which resolves when route has been successfully loaded
+ */
 async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute | null> {
   // eslint-disable-next-line no-async-promise-executor
   return new Promise(async (resolve, reject) => {
@@ -257,14 +301,17 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
 }
 
 // On navigation (before resolve) callback
+type Stopper = () => void
 type OnNavigationCb<T = SerializedRoute> = (route: T) => void | boolean
 type OnNavigationCbFn = (route: SerializedRoute) => void | boolean
 
 const onPathNavigationCbs: Record<string, Set<OnNavigationCb>> = {}
 const onNavigationCbs = new Set<OnNavigationCb>()
 
-function onNavigation(path: OnNavigationCbFn): void
-function onNavigation(path: string, cb: OnNavigationCbFn): void
+// Runs whenever a route or a aspecific path has been navigated to. Returns a
+// function, which will remove the callback from being ran.
+function onNavigation(path: OnNavigationCbFn): Stopper
+function onNavigation(path: string, cb: OnNavigationCbFn): Stopper
 function onNavigation(path: string | OnNavigationCbFn, cb?: OnNavigationCbFn) {
   if (typeof path === 'string') {
     if (!cb)
@@ -277,14 +324,26 @@ function onNavigation(path: string | OnNavigationCbFn, cb?: OnNavigationCbFn) {
   else if (path) {
     onNavigationCbs.add(path)
   }
+
+  return () => {
+    if (typeof path === 'string') {
+      if (cb)
+        onPathNavigationCbs[path].delete(cb)
+    }
+    else {
+      onNavigationCbs.delete(path)
+    }
+  }
 }
 
+// @internal
+// Executes all the callbacks for given route
 function runOnNavigationCallbacks(route: SerializedRoute): boolean | void {
   for (const cb of onNavigationCbs)
     cb(route)
 
   const routeUpdates = onPathNavigationCbs[route.path]
-  if (routeUpdates.size > 0) {
+  if (routeUpdates) {
     for (const cb of routeUpdates)
       cb(route)
   }
@@ -293,15 +352,25 @@ function runOnNavigationCallbacks(route: SerializedRoute): boolean | void {
 // On route resolve, ran after route has been successfully navigated to
 const onRouteResolveCbs: Record<string, Set<OnNavigationCb<ResolvedRoute>>> = {}
 
-function onRouteResolve(path: string, cb: (route: ResolvedRoute) => void) {
+/**
+ * Runs whenever a route has been resolved. That means the route exists and its loader has successfully fetched data.
+ *
+ * @param path Route path
+ * @param cb Callback
+ */
+function onRouteResolve(path: string, cb: (route: ResolvedRoute) => void): Stopper {
   if (!onRouteResolveCbs[path])
     onRouteResolveCbs[path] = new Set()
   onRouteResolveCbs[path].add(cb)
+
+  return () => onRouteResolveCbs[path].delete(cb)
 }
 
+// @internal
+// Executes all the callbacks for given route
 function runOnRouteResolveCallbacks(route: ResolvedRoute): void {
   const routeUpdates = onRouteResolveCbs[route.path]
-  if (routeUpdates.size > 0) {
+  if (routeUpdates) {
     for (const cb of routeUpdates)
       cb(route)
   }
@@ -309,6 +378,7 @@ function runOnRouteResolveCallbacks(route: ResolvedRoute): void {
 
 // Public API
 export {
+  getRouterConfig,
   defineRouter,
   onRouteResolve,
   onNavigation,
