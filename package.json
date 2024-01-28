@@ -1,8 +1,32 @@
 {
-  "name": "crumbs",
+  "name": "@dolanske/crumbs",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "SPA router for framework-less web applications using HTML files.",
+  "author": "dolanske",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dolanske/crumbs.git"
+  },
+  "keywords": [
+    "javascript",
+    "typescript",
+    "SPA",
+    "router"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/crumbs.js"
+    }
+  },
+  "main": "./dist/crumbs.js",
+  "module": "./dist/crumbs.js",
+  "types": "./dist/crumbs.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -13,9 +37,11 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^2.6.3",
+    "@types/node": "^20.11.9",
     "eslint": "^8.56.0",
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
+    "vite-plugin-dts": "^3.7.2",
     "vitest": "^1.2.2"
   }
 }
