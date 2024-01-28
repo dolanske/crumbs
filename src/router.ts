@@ -399,28 +399,54 @@ function runOnNavigationCallbacks(route: SerializedRoute): boolean | void {
   }
 }
 
-// On route resolve, ran after route has been successfully navigated to
-const onRouteResolveCbs: Record<string, Set<OnNavigationCb<ResolvedRoute>>> = {}
-
 /**
  * Runs whenever a route has been resolved. That means the route exists and its loader has successfully fetched data.
  *
  * @param path Route path
  * @param cb Callback
  */
-function onRouteResolve(path: string, cb: (route: ResolvedRoute) => void): Stopper {
-  if (!onRouteResolveCbs[path])
-    onRouteResolveCbs[path] = new Set()
-  onRouteResolveCbs[path].add(cb)
 
-  return () => onRouteResolveCbs[path].delete(cb)
+type OnResolveRouteCb = (route: ResolvedRoute) => void
+
+// On route resolve, ran after route has been successfully navigated to
+const onPathRouteResolveCbs: Record<string, Set<OnNavigationCb<ResolvedRoute>>> = {}
+const onRouteResolveCbs: Set<OnResolveRouteCb> = new Set()
+
+function onRouteResolve(path: OnResolveRouteCb): Stopper
+function onRouteResolve(path: string, cb: OnResolveRouteCb): Stopper
+function onRouteResolve(path: string | OnResolveRouteCb, cb?: OnResolveRouteCb): Stopper {
+  // With path
+  if (typeof path === 'string') {
+    if (cb) {
+      if (!onPathRouteResolveCbs[path])
+        onPathRouteResolveCbs[path] = new Set()
+      onPathRouteResolveCbs[path].add(cb)
+    }
+  }
+  // Without path
+  else {
+    onRouteResolveCbs.add(path)
+  }
+
+  return () => {
+    if (typeof path === 'string') {
+      if (cb)
+        onPathRouteResolveCbs[path as string].delete(cb)
+    }
+    else {
+      onRouteResolveCbs.delete(path)
+    }
+  }
 }
 
 // @internal
 // Executes all the callbacks for given route
 function runOnRouteResolveCallbacks(route: ResolvedRoute): void {
-  const routeUpdates = onRouteResolveCbs[route.path]
-  if (routeUpdates) {
+  for (const cb of onRouteResolveCbs)
+    cb(route)
+
+  const routeUpdates = onPathRouteResolveCbs[route.path]
+  if (routeUpdates.size) {
     for (const cb of routeUpdates)
       cb(route)
   }

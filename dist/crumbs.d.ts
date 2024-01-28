@@ -52,7 +52,11 @@ declare type OnNavigationCbFn = (route: SerializedRoute) => void | boolean;
  * @param path Route path
  * @param cb Callback
  */
-export declare function onRouteResolve(path: string, cb: (route: ResolvedRoute) => void): Stopper;
+declare type OnResolveRouteCb = (route: ResolvedRoute) => void;
+
+export declare function onRouteResolve(path: OnResolveRouteCb): Stopper;
+
+export declare function onRouteResolve(path: string, cb: OnResolveRouteCb): Stopper;
 
 declare interface ResolvedPathOptions {
     resolvedPath: string;
