@@ -78,7 +78,9 @@ function defineRouter(definitions: Router) {
 
   // Register route listeners. This will execute whenever user uses the browser
   // native navigation
-  const popstateHandler = ({ state }: PopStateEvent) => navigate(state.path)
+  function popstateHandler(event: PopStateEvent) {
+    navigate(event.state.path)
+  }
 
   return {
     /**
@@ -90,9 +92,7 @@ function defineRouter(definitions: Router) {
       rootSelector = selector
       window.addEventListener('popstate', popstateHandler)
       registerLinks()
-
-      const defaultPath = getDefaultRoute(serializedRoutes)
-      navigate(defaultPath)
+      navigate(getDefaultRoute(serializedRoutes))
     },
     /**
      * Stops the router. Navigation will no longer work.
@@ -266,16 +266,16 @@ function registerLinks() {
     if (!href)
       continue
 
-    const isMatch = routes.some(r => isMatching(r.path, href))
+    // When links are garbage collected, event listeners are automatically
+    // removed, so this does not need a stopper function.
+    link.addEventListener('click', (event: Event) => {
+      event.preventDefault()
 
-    if (isMatch) {
-      // When links are garbage collected, event listeners are automatically
-      // removed, so this does not need a stopper function.
-      link.addEventListener('click', (event: Event) => {
-        event.preventDefault()
+      // Only navigate if link is actually matching
+      const isMatch = routes.some(r => isMatching(r.path, href))
+      if (isMatch)
         navigate(href, true)
-      })
-    }
+    })
   }
 }
 
@@ -424,8 +424,10 @@ function runOnRouteResolveCallbacks(route: ResolvedRoute): void {
   }
 }
 
-// Public API
+/////////////////////////////////////////////////////////////////////////
+
 export {
+  // Public API
   getRouterConfig,
   defineRouter,
   onRouteResolve,
@@ -434,9 +436,11 @@ export {
   getRoute,
   getRouterRoot,
 
-  // Other stuff
+  // Internals / methods not really intended for public use
   resolvePath,
+  isMatching,
 
+  // Types
   type SerializedRoute,
   type ResolvedRoute,
   type Route,
