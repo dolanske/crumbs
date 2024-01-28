@@ -1,19 +1,12 @@
 import type { ShallowReadonly } from './type-helpers'
 
-/**
- * TODO
- * - Navigating to '/' reloads page (this could be also causing history issues)
- * -
- */
-
 // Initial user input
 interface Route {
   title?: string
-  // TODO
-  // Support Element
-  // TODO
-  // Fallback Element
-  html: string
+
+  html: string | Element
+  // Fallback should be used together with loader, to display error state
+  fallback?: string | Element
   loader?: (params: any) => Promise<any>
   default?: boolean
   lazy?: boolean
@@ -124,7 +117,9 @@ function getDefaultRoute(routes: SerializedRoute[]): string {
 
 // @internal
 // Converts string template into a piece of DOM
-function parseToHtml(template: string): Element {
+function parseToHtml(template: string | Element): Element {
+  if (template instanceof Element)
+    return template
   const parser = new DOMParser()
   const raw = parser.parseFromString(template, 'text/html')
   return raw.body.firstElementChild!
@@ -292,14 +287,15 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
     // 1. Resolve path
     const {
       resolvedPath,
+      sourcePath,
       params,
     } = resolvePath(path, routes)
 
-    const route = findRoute({ path })
+    const route = findRoute({ path: sourcePath })
     if (!route)
       return reject(new Error('Invalid path. Could not match route.'))
 
-    const renderedHtml = parseToHtml(route.html)
+    let renderedHtml = parseToHtml(route.html)
 
     // 2. onNavigation () callback run
     // If callback returns false, the navigation is cancelled
@@ -312,13 +308,19 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
     if (route.loader) {
       data = await route.loader(params)
         .then(res => res)
-        .catch(e => reject(new Error(e)))
+        .catch((e) => {
+          if (!route.fallback)
+            return reject(new Error(e))
+
+          renderedHtml = parseToHtml(route.fallback)
+          return null
+        })
     }
 
     // 4. set currentRoute variable
     currentRoute = {
       ...route,
-      path,
+      path: sourcePath,
       resolvedPath,
       renderedHtml,
       params,
