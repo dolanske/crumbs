@@ -283,7 +283,7 @@ function registerLinks() {
  */
 async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute | null> {
   // eslint-disable-next-line no-async-promise-executor
-  return new Promise(async (resolve, reject) => {
+  const navigationHandler = new Promise<ResolvedRoute | null>(async (resolve, reject) => {
     // 1. Resolve path
     const {
       resolvedPath,
@@ -348,6 +348,21 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
     // 8. Resolve
     resolve(currentRoute)
   })
+
+  // If navigation throws for some reason, run onRouteError callback
+  // NOTE: this will not be triggered when navigation into a route was cancelled
+  navigationHandler.catch((error) => {
+    const route = findRoute({ path })
+    if (route) {
+      const { sourcePath } = resolvePath(path, routes)
+      runOnRouteErrorCallbacks({ ...route, path: sourcePath, renderedHtml: null }, error)
+    }
+    else {
+      runOnRouteErrorCallbacks(null, error)
+    }
+  })
+
+  return navigationHandler
 }
 
 // On navigation (before resolve) callback
@@ -452,6 +467,54 @@ function runOnRouteResolveCallbacks(route: ResolvedRoute): void {
   }
 }
 
+// On navigation error
+type NavigationErrorCb = (route: SerializedRoute | null, error: any) => void
+
+const onRoutePathErrorCbs: Record<string, Set<NavigationErrorCb>> = {}
+const onRouteErrorcbs = new Set<NavigationErrorCb>()
+
+function onRouteError(path: NavigationErrorCb): Stopper
+function onRouteError(path: string, cb: NavigationErrorCb): Stopper
+function onRouteError(path: string | NavigationErrorCb, cb?: NavigationErrorCb): Stopper {
+  // With path
+  if (typeof path === 'string') {
+    if (cb) {
+      if (!onRoutePathErrorCbs[path])
+        onRoutePathErrorCbs[path] = new Set()
+      onRoutePathErrorCbs[path].add(cb)
+    }
+  }
+  // Without path
+  else {
+    onRouteErrorcbs.add(path)
+  }
+
+  return () => {
+    if (typeof path === 'string') {
+      if (cb)
+        onRoutePathErrorCbs[path as string].delete(cb)
+    }
+    else {
+      onRouteErrorcbs.delete(path)
+    }
+  }
+}
+
+// @internal
+// Executes all the callbacks for given route
+function runOnRouteErrorCallbacks(route: SerializedRoute | null, error: any): void {
+  for (const cb of onRouteErrorcbs)
+    cb(route, error)
+
+  if (route) {
+    const routeUpdates = onRoutePathErrorCbs[route.path]
+    if (routeUpdates.size) {
+      for (const cb of routeUpdates)
+        cb(route, error)
+    }
+  }
+}
+
 /////////////////////////////////////////////////////////////////////////
 
 export {
@@ -463,6 +526,7 @@ export {
   navigate,
   getRoute,
   getRouterRoot,
+  onRouteError,
 
   // Internals / methods not really intended for public use
   resolvePath,

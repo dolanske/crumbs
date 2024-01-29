@@ -40,6 +40,8 @@ export declare function isMatching(sourcePath: string, pathWithValues: string): 
  */
 export declare function navigate(path: string, replace?: boolean): Promise<ResolvedRoute | null>;
 
+declare type NavigationErrorCb = (route: SerializedRoute | null, error: any) => void;
+
 export declare function onNavigation(path: OnNavigationCbFn): Stopper;
 
 export declare function onNavigation(path: string, cb: OnNavigationCbFn): Stopper;
@@ -53,6 +55,10 @@ declare type OnNavigationCbFn = (route: SerializedRoute) => void | boolean;
  * @param cb Callback
  */
 declare type OnResolveRouteCb = (route: ResolvedRoute) => void;
+
+export declare function onRouteError(path: NavigationErrorCb): Stopper;
+
+export declare function onRouteError(path: string, cb: NavigationErrorCb): Stopper;
 
 export declare function onRouteResolve(path: OnResolveRouteCb): Stopper;
 
