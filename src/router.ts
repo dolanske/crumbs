@@ -461,7 +461,7 @@ function runOnRouteResolveCallbacks(route: ResolvedRoute): void {
     cb(route)
 
   const routeUpdates = onPathRouteResolveCbs[route.path]
-  if (routeUpdates.size) {
+  if (routeUpdates) {
     for (const cb of routeUpdates)
       cb(route)
   }
@@ -508,7 +508,7 @@ function runOnRouteErrorCallbacks(route: SerializedRoute | null, error: any): vo
 
   if (route) {
     const routeUpdates = onRoutePathErrorCbs[route.path]
-    if (routeUpdates.size) {
+    if (routeUpdates) {
       for (const cb of routeUpdates)
         cb(route, error)
     }

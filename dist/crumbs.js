@@ -1,8 +1,8 @@
 let P = {}, g = [], w = "", c;
-function x() {
+function U() {
   return structuredClone(c);
 }
-function U(t) {
+function W(t) {
   P = Object.freeze(t);
   const e = Object.entries(t).map(([o, r]) => typeof r == "string" ? {
     html: r,
@@ -51,7 +51,7 @@ function H() {
     throw new Error("Invalid root node selector. Please select a valid HTML element.");
   return t;
 }
-function W() {
+function j() {
   return P;
 }
 function E(t) {
@@ -125,7 +125,7 @@ async function v(t, e) {
       renderedHtml: f,
       params: u,
       data: S
-    }, e ? history.replaceState({ path: t }, "", s) : history.pushState({ path: t }, "", s), H().replaceChildren(c.renderedHtml), O(), i.title && (document.title = i.title), z(c), o(c);
+    }, e ? history.replaceState({ path: t }, "", s) : history.pushState({ path: t }, "", s), H().replaceChildren(c.renderedHtml), O(), i.title && (document.title = i.title), D(c), o(c);
   });
   return n.catch((o) => {
     const r = E({ path: t });
@@ -137,7 +137,7 @@ async function v(t, e) {
   }), n;
 }
 const a = {}, R = /* @__PURE__ */ new Set();
-function j(t, e) {
+function z(t, e) {
   if (typeof t == "string") {
     if (!e)
       return;
@@ -162,11 +162,11 @@ function A(t, e) {
     typeof t == "string" ? e && d[t].delete(e) : y.delete(t);
   };
 }
-function z(t) {
+function D(t) {
   for (const n of y)
     n(t);
   const e = d[t.path];
-  if (e.size)
+  if (e)
     for (const n of e)
       n(t);
 }
@@ -181,19 +181,19 @@ function k(t, e) {
     n(t, e);
   if (t) {
     const n = h[t.path];
-    if (n.size)
+    if (n)
       for (const o of n)
         o(t, e);
   }
 }
 export {
-  U as defineRouter,
-  x as getRoute,
-  W as getRouterConfig,
+  W as defineRouter,
+  U as getRoute,
+  j as getRouterConfig,
   H as getRouterRoot,
   N as isMatching,
   v as navigate,
-  j as onNavigation,
+  z as onNavigation,
   I as onRouteError,
   A as onRouteResolve,
   C as resolvePath
