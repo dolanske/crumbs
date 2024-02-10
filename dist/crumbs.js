@@ -1,19 +1,19 @@
-let P = {}, g = [], w = "", c;
+let H = {}, p = [], w = "", f;
 function U() {
-  return structuredClone(c);
+  return structuredClone(f);
 }
 function W(t) {
-  P = Object.freeze(t);
+  H = Object.freeze(t);
   const e = Object.entries(t).map(([o, r]) => typeof r == "string" ? {
     html: r,
-    renderedHtml: p(r),
+    renderedHtml: g(r),
     path: o
   } : {
     ...r,
     path: o,
-    renderedHtml: p(r.html)
+    renderedHtml: g(r.html)
   });
-  g = e;
+  p = e;
   function n(o) {
     v(o.state.path);
   }
@@ -36,14 +36,16 @@ function W(t) {
 }
 function L(t) {
   let e;
+  if (t.find((n) => S(n.path, location.pathname)))
+    return location.pathname;
   if (e = t.find((n) => n.default || n.path === "/"), e || (e = t.sort((n, o) => n.path.length - o.path.length)[0], e))
     return e.path;
   throw new Error("No default route found. Please define one by settings its path to `/` or adding the `default` property to the route definitions. Note, it is not possible to set dynamic routes as default routes.");
 }
-function p(t) {
+function g(t) {
   return t instanceof Element ? t : new DOMParser().parseFromString(t, "text/html").body.firstElementChild;
 }
-function H() {
+function N() {
   if (!w)
     throw new Error("No root selector found. Did you start the router?");
   const t = document.querySelector(w);
@@ -52,11 +54,11 @@ function H() {
   return t;
 }
 function j() {
-  return P;
+  return H;
 }
-function E(t) {
+function C(t) {
   const [e, n] = Object.entries(t)[0];
-  return g.find((o) => {
+  return p.find((o) => {
     var r;
     switch (e) {
       case "path":
@@ -72,14 +74,14 @@ function E(t) {
     }
   });
 }
-function N(t, e) {
+function S(t, e) {
   if (t === e)
     return !0;
   const n = t.split("/"), o = e.split("/");
   return n.every((r, s) => r.startsWith(":") ? !0 : r === o[s]);
 }
-function C(t, e) {
-  const n = e.find((l) => N(l.path, t));
+function k(t, e) {
+  const n = e.find((l) => S(l.path, t));
   if (!n)
     throw new Error(`No matching route found for the path "${t}"`);
   const o = n.path.split("/"), r = t.split("/"), s = {};
@@ -87,8 +89,8 @@ function C(t, e) {
     const u = o[l];
     if (!u || !u.startsWith(":"))
       continue;
-    const i = u.substring(1), f = r[l];
-    s[i] = f;
+    const i = u.substring(1), a = r[l];
+    s[i] = a;
   }
   return {
     resolvedPath: t,
@@ -98,11 +100,11 @@ function C(t, e) {
 }
 function O() {
   var n;
-  const e = H().querySelectorAll("a[link]");
+  const e = N().querySelectorAll("a[link]");
   for (const o of e) {
     const r = (n = o.getAttributeNode("href")) == null ? void 0 : n.value;
     r && o.addEventListener("click", (s) => {
-      s.preventDefault(), g.some((u) => N(u.path, r)) && v(r, !0);
+      s.preventDefault(), p.some((u) => S(u.path, r)) && v(r, !0);
     });
   }
 }
@@ -112,46 +114,46 @@ async function v(t, e) {
       resolvedPath: s,
       sourcePath: l,
       params: u
-    } = C(t, g), i = E({ path: l });
+    } = k(t, p), i = C({ path: l });
     if (!i)
       return r(new Error("Invalid path. Could not match route."));
-    let f = p(i.html);
-    M({ ...i, path: t, renderedHtml: f }) === !1 && o(null);
-    let S;
-    i.loader && (S = await i.loader(u).then((m) => m).catch((m) => i.fallback ? (f = p(i.fallback), null) : r(new Error(m)))), c = {
+    let a = g(i.html);
+    M({ ...i, path: t, renderedHtml: a }) === !1 && o(null);
+    let E;
+    i.loader && (E = await i.loader(u).then((m) => m).catch((m) => i.fallback ? (a = g(i.fallback), null) : r(new Error(m)))), f = {
       ...i,
       path: l,
       resolvedPath: s,
-      renderedHtml: f,
+      renderedHtml: a,
       params: u,
-      data: S
-    }, e ? history.replaceState({ path: t }, "", s) : history.pushState({ path: t }, "", s), H().replaceChildren(c.renderedHtml), O(), i.title && (document.title = i.title), D(c), o(c);
+      data: E
+    }, e ? history.replaceState({ path: t }, "", s) : history.pushState({ path: t }, "", s), N().replaceChildren(f.renderedHtml), O(), i.title && (document.title = i.title), D(f), o(f);
   });
   return n.catch((o) => {
-    const r = E({ path: t });
+    const r = C({ path: t });
     if (r) {
-      const { sourcePath: s } = C(t, g);
-      k({ ...r, path: s, renderedHtml: null }, o);
+      const { sourcePath: s } = k(t, p);
+      P({ ...r, path: s, renderedHtml: null }, o);
     } else
-      k(null, o);
+      P(null, o);
   }), n;
 }
-const a = {}, R = /* @__PURE__ */ new Set();
+const c = {}, R = /* @__PURE__ */ new Set();
 function z(t, e) {
   if (typeof t == "string") {
     if (!e)
       return;
-    a[t] || (a[t] = /* @__PURE__ */ new Set()), a[t].add(e);
+    c[t] || (c[t] = /* @__PURE__ */ new Set()), c[t].add(e);
   } else
     t && R.add(t);
   return () => {
-    typeof t == "string" ? e && a[t].delete(e) : R.delete(t);
+    typeof t == "string" ? e && c[t].delete(e) : R.delete(t);
   };
 }
 function M(t) {
   for (const n of R)
     n(t);
-  const e = a[t.path];
+  const e = c[t.path];
   if (e)
     for (const n of e)
       n(t);
@@ -176,7 +178,7 @@ function I(t, e) {
     typeof t == "string" ? e && h[t].delete(e) : b.delete(t);
   };
 }
-function k(t, e) {
+function P(t, e) {
   for (const n of b)
     n(t, e);
   if (t) {
@@ -190,11 +192,11 @@ export {
   W as defineRouter,
   U as getRoute,
   j as getRouterConfig,
-  H as getRouterRoot,
-  N as isMatching,
+  N as getRouterRoot,
+  S as isMatching,
   v as navigate,
   z as onNavigation,
   I as onRouteError,
   A as onRouteResolve,
-  C as resolvePath
+  k as resolvePath
 };

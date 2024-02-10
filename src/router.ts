@@ -102,6 +102,9 @@ function getDefaultRoute(routes: SerializedRoute[]): string {
   // 1. Look for `default` or `/` route
   let defaultRoute: SerializedRoute | undefined
 
+  if (routes.find(route => isMatching(route.path, location.pathname)))
+    return location.pathname
+
   defaultRoute = routes.find(r => r.default || r.path === '/')
   if (defaultRoute)
     return defaultRoute.path
