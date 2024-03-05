@@ -18,7 +18,7 @@ const routes = {
 
 defineRouter(routes).run('#app')
 
-onRouteResolve('/other/:id', (route) => {
+onRouteResolve((route) => {
   // eslint-disable-next-line no-console
-  console.log(route.data)
+  console.log(route.path)
 })

@@ -10,7 +10,6 @@ export default defineConfig({
       formats: ['es'],
       fileName: 'crumbs',
     },
-    minify: false,
   },
   plugins: [dts({ rollupTypes: true })],
 })
