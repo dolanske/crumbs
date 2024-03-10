@@ -24,6 +24,7 @@
   "main": "./dist/crumbs.js",
   "module": "./dist/crumbs.js",
   "types": "./dist/crumbs.d.ts",
+  "typings": "./dist/crumbs.d.ts",
   "files": [
     "dist"
   ],
