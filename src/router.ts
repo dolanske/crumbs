@@ -212,12 +212,20 @@ interface ResolvedPathOptions {
   resolvedPath: string
   sourcePath: string
   params: object
+  hash: string
+  query: string
 }
 
 // @internal
 // Takes a path, check if it is matching with any of the default paths
 // Extracts values based on the
-function resolvePath(path: string, routes: SerializedRoute[]): ResolvedPathOptions {
+function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOptions {
+  // 0.
+  const url = new URL(_path)
+  const hash = url.hash
+  const query = url.search
+  const path = url.pathname
+
   // 1. Match current path against an existing route
   const source = routes.find(r => isMatching(r.path, path))
   if (!source)
@@ -244,6 +252,8 @@ function resolvePath(path: string, routes: SerializedRoute[]): ResolvedPathOptio
     resolvedPath: path,
     sourcePath: source.path,
     params,
+    hash,
+    query,
   }
 }
 
@@ -292,6 +302,8 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       resolvedPath,
       sourcePath,
       params,
+      hash,
+      query,
     } = resolvePath(path, routes)
 
     const route = findRoute({ path: sourcePath })
