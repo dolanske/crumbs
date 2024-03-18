@@ -193,6 +193,13 @@ function isMatching(sourcePath: string, pathWithValues: string): boolean {
   if (sourcePath === pathWithValues)
     return true
 
+  // Ignore query & search
+  sourcePath = new URL(sourcePath, location.origin).pathname
+  pathWithValues = new URL(sourcePath, location.origin).pathname
+
+  console.log('[isMatching]')
+  console.log(sourcePath, pathWithValues)
+
   const sourceSplit = sourcePath.split('/')
   const valuesSplit = pathWithValues.split('/')
 
@@ -212,8 +219,6 @@ interface ResolvedPathOptions {
   resolvedPath: string
   sourcePath: string
   params: object
-  hash: string
-  query: string
 }
 
 // @internal
@@ -221,7 +226,7 @@ interface ResolvedPathOptions {
 // Extracts values based on the
 function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOptions {
   // 0.
-  const url = new URL(_path)
+  const url = new URL(_path, location.origin)
   const hash = url.hash
   const query = url.search
   const path = url.pathname
@@ -248,12 +253,13 @@ function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOpti
     params[key] = value
   }
 
+  console.log('[resolvePath]')
+  console.log(hash, query)
+
   return {
     resolvedPath: path,
     sourcePath: source.path,
     params,
-    hash,
-    query,
   }
 }
 
@@ -302,8 +308,6 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       resolvedPath,
       sourcePath,
       params,
-      hash,
-      query,
     } = resolvePath(path, routes)
 
     const route = findRoute({ path: sourcePath })
