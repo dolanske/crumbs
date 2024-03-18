@@ -1,5 +1,8 @@
 import type { ShallowReadonly } from './type-helpers'
 
+// TODO: Fix type errors
+// TODO: correctly append query and hash parameters
+
 // Initial user input
 interface Route {
   title?: string
@@ -16,6 +19,8 @@ interface Route {
 interface SerializedRoute extends Route {
   path: string
   renderedHtml: Element | null
+  hash: string
+  query: Record<string, string>
 }
 
 // The currently active route
@@ -25,6 +30,8 @@ interface ResolvedRoute extends Route {
   resolvedPath: string
   params?: object
   data: any
+  hash: string
+  query: Record<string, string>
 }
 
 // Extend the native PopStateEvent with the properties which will be added when
@@ -57,6 +64,8 @@ function defineRouter(definitions: Router) {
         html: route,
         renderedHtml: parseToHtml(route),
         path,
+        query: {},
+        hash: '',
       }
     }
 
@@ -64,6 +73,8 @@ function defineRouter(definitions: Router) {
       ...route,
       path,
       renderedHtml: parseToHtml(route.html),
+      query: {},
+      hash: '',
     }
   })
 
@@ -195,10 +206,9 @@ function isMatching(sourcePath: string, pathWithValues: string): boolean {
 
   // Ignore query & search
   sourcePath = new URL(sourcePath, location.origin).pathname
-  pathWithValues = new URL(sourcePath, location.origin).pathname
+  pathWithValues = new URL(pathWithValues, location.origin).pathname
 
-  console.log('[isMatching]')
-  console.log(sourcePath, pathWithValues)
+  // console.log('[isMatching]')
 
   const sourceSplit = sourcePath.split('/')
   const valuesSplit = pathWithValues.split('/')
@@ -219,6 +229,8 @@ interface ResolvedPathOptions {
   resolvedPath: string
   sourcePath: string
   params: object
+  query: Record<string, string>
+  hash: string
 }
 
 // @internal
@@ -228,7 +240,7 @@ function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOpti
   // 0.
   const url = new URL(_path, location.origin)
   const hash = url.hash
-  const query = url.search
+  const query = Object.fromEntries(url.searchParams)
   const path = url.pathname
 
   // 1. Match current path against an existing route
@@ -253,13 +265,12 @@ function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOpti
     params[key] = value
   }
 
-  console.log('[resolvePath]')
-  console.log(hash, query)
-
   return {
     resolvedPath: path,
     sourcePath: source.path,
     params,
+    hash,
+    query,
   }
 }
 
@@ -308,7 +319,11 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       resolvedPath,
       sourcePath,
       params,
+      hash,
+      query,
     } = resolvePath(path, routes)
+
+    console.log(hash, query)
 
     const route = findRoute({ path: sourcePath })
     if (!route)
@@ -318,7 +333,7 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
 
     // 2. onNavigation () callback run
     // If callback returns false, the navigation is cancelled
-    const result = runOnNavigationCallbacks({ ...route, path, renderedHtml })
+    const result = runOnNavigationCallbacks({ ...route, path, renderedHtml, hash, query })
     if (result === false)
       resolve(null)
 
@@ -344,6 +359,8 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       renderedHtml,
       params,
       data,
+      hash,
+      query,
     }
 
     // 5. history.push / replace
@@ -373,8 +390,14 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
   navigationHandler.catch((error) => {
     const route = findRoute({ path })
     if (route) {
-      const { sourcePath } = resolvePath(path, routes)
-      runOnRouteErrorCallbacks({ ...route, path: sourcePath, renderedHtml: null }, error)
+      const { sourcePath, hash, query } = resolvePath(path, routes)
+      runOnRouteErrorCallbacks({
+        ...route,
+        path: sourcePath,
+        renderedHtml: null,
+        hash,
+        query,
+      }, error)
     }
     else {
       runOnRouteErrorCallbacks(null, error)

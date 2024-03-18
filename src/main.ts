@@ -9,8 +9,3 @@ const routes = {
 }
 
 defineRouter(routes).run('#app')
-
-onRouteResolve((route) => {
-  // eslint-disable-next-line no-console
-  console.log(route.path)
-})
