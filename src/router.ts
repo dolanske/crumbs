@@ -1,8 +1,5 @@
 import type { ShallowReadonly } from './type-helpers'
 
-// TODO: Fix type errors
-// TODO: correctly append query and hash parameters
-
 // Initial user input
 interface Route {
   title?: string
@@ -304,6 +301,14 @@ function registerLinks() {
   }
 }
 
+// TODO
+// second param should be an object, which also accepts the props object,
+// which is passed into event listeners on navigation and resolve, but isnt in the URL ohterwise
+
+// TODO
+// REVIEW
+// getRouteProps() which would check current url and match in an object the props which were passed to it on navigation?
+
 /**
  * Navigate to the provided path.
  *
@@ -322,8 +327,6 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       hash,
       query,
     } = resolvePath(path, routes)
-
-    console.log(hash, query)
 
     const route = findRoute({ path: sourcePath })
     if (!route)
@@ -362,6 +365,8 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       hash,
       query,
     }
+
+    // TODO add hash and query params
 
     // 5. history.push / replace
     if (replace)

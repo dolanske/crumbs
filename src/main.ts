@@ -9,3 +9,7 @@ const routes = {
 }
 
 defineRouter(routes).run('#app')
+
+onRouteResolve((route) => {
+  console.log(route)
+})
