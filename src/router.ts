@@ -296,7 +296,7 @@ function registerLinks() {
       // Only navigate if link is actually matching
       const isMatch = routes.some(r => isMatching(r.path, href))
       if (isMatch)
-        navigate(href, true)
+        navigate(href, { replace: true })
     })
   }
 }
@@ -305,9 +305,19 @@ function registerLinks() {
 // second param should be an object, which also accepts the props object,
 // which is passed into event listeners on navigation and resolve, but isnt in the URL ohterwise
 
+// FIXME
+// Loading URL with query parameteres removes them
+
 // TODO
 // REVIEW
 // getRouteProps() which would check current url and match in an object the props which were passed to it on navigation?
+
+interface NavigateOptions {
+  hash?: string
+  query?: string | Record<string, string | number | boolean>
+  props?: Record<string, any>
+  replace?: boolean
+}
 
 /**
  * Navigate to the provided path.
@@ -316,10 +326,17 @@ function registerLinks() {
  * @param replace {optional} Wether to append a new history entry or replace the current one
  * @returns Promise, which resolves when route has been successfully loaded
  */
-async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute | null> {
+async function navigate(path: string, options: NavigateOptions = {}): Promise<ResolvedRoute | null> {
+  const {
+    replace,
+    hash: optionsHash,
+    query: optionsQuery,
+    props: optionsProps,
+  } = options
+
   // eslint-disable-next-line no-async-promise-executor
   const navigationHandler = new Promise<ResolvedRoute | null>(async (resolve, reject) => {
-    // 1. Resolve path
+    // Resolve path
     const {
       resolvedPath,
       sourcePath,
@@ -334,13 +351,13 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
 
     let renderedHtml = parseToHtml(route.html)
 
-    // 2. onNavigation () callback run
+    // onNavigation () callback run
     // If callback returns false, the navigation is cancelled
     const result = runOnNavigationCallbacks({ ...route, path, renderedHtml, hash, query })
     if (result === false)
       resolve(null)
 
-    // 3. Check if loader has data
+    // Check if loader has data
     let data
     if (route.loader) {
       data = await route.loader(params)
@@ -354,7 +371,7 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
         })
     }
 
-    // 4. set currentRoute variable
+    // set currentRoute variable
     currentRoute = {
       ...route,
       path: sourcePath,
@@ -366,27 +383,26 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       query,
     }
 
-    // TODO add hash and query params
+    const searchParams = new URLSearchParams(query)
+    const queryAppend = searchParams.size > 0 ? `?${searchParams.toString()}` : ''
+    const hashAppend = hash.length > 0 ? `#${hash}` : ''
 
-    // 5. history.push / replace
+    // history.push / replace
     if (replace)
-      history.replaceState({ path }, '', resolvedPath)
+      history.replaceState({ path }, '', resolvedPath + queryAppend + hashAppend)
     else
-      history.pushState({ path }, '', resolvedPath)
+      history.pushState({ path }, '', resolvedPath + queryAppend + hashAppend)
 
     // Append route to the root
     const root = getRouterRoot()
     root.replaceChildren(currentRoute.renderedHtml)
     registerLinks()
 
-    // 6. Set document title if it has it
+    // Set document title if it has it
     if (route.title)
       document.title = route.title
 
-    // 7. onRouteResolve() callback run
     runOnRouteResolveCallbacks(currentRoute)
-
-    // 8. Resolve
     resolve(currentRoute)
   })
 
