@@ -11,7 +11,7 @@ export declare function defineRouter(definitions: Router): {
     stop(): void;
 };
 
-export declare function getRoute(): ShallowReadonly<ResolvedRoute> | null;
+export declare function getRoute(): Readonly<ResolvedRoute> | null;
 
 export declare function getRouterConfig(): ShallowReadonly<Router>;
 
@@ -35,7 +35,7 @@ export declare function isMatching(sourcePath: string, pathWithValues: string): 
  * Navigate to the provided path.
  *
  * @param path Path to navigate to
- * @param replace {optional} Wether to append a new history entry or replace the current one
+ * @param options {NavigateOptions} Navigation options
  * @returns Promise, which resolves when route has been successfully loaded
  */
 export declare function navigate(path: string, options?: NavigateOptions): Promise<ResolvedRoute | null>;

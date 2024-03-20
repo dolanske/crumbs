@@ -50,8 +50,8 @@ let rootSelector: string = ''
 let currentRoute: null | ResolvedRoute
 
 // Returns the current active route
-function getRoute() {
-  return structuredClone<ShallowReadonly<ResolvedRoute> | null>(currentRoute)
+function getRoute(): Readonly<ResolvedRoute> | null {
+  return currentRoute
 }
 
 // Creates router by serializing all the provided routes and
@@ -377,7 +377,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
     }
 
     // set currentRoute variable
-    currentRoute = {
+    currentRoute = Object.freeze({
       ...route,
       path: sourcePath,
       resolvedPath,
@@ -387,7 +387,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
       hash,
       query,
       props,
-    }
+    })
 
     const searchParams = new URLSearchParams(query)
     const queryAppend = searchParams.size > 0 ? `?${searchParams.toString()}` : ''
