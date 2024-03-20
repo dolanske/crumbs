@@ -308,7 +308,7 @@ function registerLinks() {
 }
 
 interface NavigateOptions {
-  hash?: string
+  hash?: string | boolean | number
   query?: Record<string, string | number | boolean>
   props?: Record<string, any>
   replace?: boolean
@@ -344,7 +344,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
     } = resolvePath(path, routes)
 
     if (optionsHash)
-      hash = optionsHash
+      hash = String(optionsHash)
     if (optionsQuery) {
       for (const key of Object.keys(optionsQuery))
         query[key] = String(optionsQuery[key])
@@ -391,7 +391,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
 
     const searchParams = new URLSearchParams(query)
     const queryAppend = searchParams.size > 0 ? `?${searchParams.toString()}` : ''
-    const finalPath = resolvedPath + queryAppend + hash
+    const finalPath = `${resolvedPath + queryAppend}#${hash}`
 
     if (!isPopState) {
       // Update the URL. Since props are not path of hte url state, pass them into the state here

@@ -41,7 +41,7 @@ export declare function isMatching(sourcePath: string, pathWithValues: string): 
 export declare function navigate(path: string, options?: NavigateOptions): Promise<ResolvedRoute | null>;
 
 declare interface NavigateOptions {
-    hash?: string;
+    hash?: string | boolean | number;
     query?: Record<string, string | number | boolean>;
     props?: Record<string, any>;
     replace?: boolean;

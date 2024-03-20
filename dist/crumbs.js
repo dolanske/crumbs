@@ -31,7 +31,7 @@ function B(t) {
      * @param selector DOM selector
      */
     run: (o) => {
-      k = o, window.addEventListener("popstate", n), A(), C(T(e));
+      k = o, window.addEventListener("popstate", n), x(), C(I(e));
     },
     /**
      * Stops the router. Navigation will no longer work.
@@ -41,7 +41,7 @@ function B(t) {
     }
   };
 }
-function T(t) {
+function I(t) {
   let e;
   if (t.find((n) => O(n.path, location.pathname)))
     return location.pathname + location.search + location.hash;
@@ -52,7 +52,7 @@ function T(t) {
 function E(t) {
   return t instanceof Element ? t : new DOMParser().parseFromString(t, "text/html").body.firstElementChild;
 }
-function x() {
+function $() {
   if (!k)
     throw new Error("No root selector found. Did you start the router?");
   const t = document.querySelector(k);
@@ -108,9 +108,9 @@ function M(t, e) {
     query: r
   };
 }
-function A() {
+function x() {
   var n;
-  const e = x().querySelectorAll("a[link]");
+  const e = $().querySelectorAll("a[link]");
   for (const o of e) {
     const r = (n = o.getAttributeNode("href")) == null ? void 0 : n.value;
     r && o.addEventListener("click", (s) => {
@@ -133,14 +133,14 @@ async function C(t, e = {}) {
       hash: p,
       query: S
     } = M(t, v);
-    if (o && (p = o), r)
+    if (o && (p = String(o)), r)
       for (const g of Object.keys(r))
         S[g] = String(r[g]);
     const a = j({ path: c });
     if (!a)
       return l(new Error("Invalid path. Could not match route."));
     let P = E(a.html);
-    _({ ...a, path: t, renderedHtml: P, hash: p, query: S, props: s }) === !1 && u(null);
+    T({ ...a, path: t, renderedHtml: P, hash: p, query: S, props: s }) === !1 && u(null);
     let L;
     a.loader && (L = await a.loader(h).then((g) => g).catch((g) => a.fallback ? (P = E(a.fallback), null) : l(new Error(g)))), m = Object.freeze({
       ...a,
@@ -153,8 +153,8 @@ async function C(t, e = {}) {
       query: S,
       props: s
     });
-    const U = new URLSearchParams(S), I = U.size > 0 ? `?${U.toString()}` : "", b = i + I + p;
-    d || (n ? history.replaceState({ path: b, props: s }, "", b) : history.pushState({ path: b, props: s }, "", b)), x().replaceChildren(m.renderedHtml), A(), a.title && (document.title = a.title), $(m), u(m);
+    const U = new URLSearchParams(S), A = U.size > 0 ? `?${U.toString()}` : "", b = `${i + A}#${p}`;
+    d || (n ? history.replaceState({ path: b, props: s }, "", b) : history.pushState({ path: b, props: s }, "", b)), $().replaceChildren(m.renderedHtml), x(), a.title && (document.title = a.title), _(m), u(m);
   });
   return f.catch((u) => {
     const l = j({ path: t });
@@ -184,7 +184,7 @@ function J(t, e) {
     typeof t == "string" ? e && y[t].delete(e) : H.delete(t);
   };
 }
-function _(t) {
+function T(t) {
   for (const n of H)
     n(t);
   const e = y[t.path];
@@ -198,7 +198,7 @@ function K(t, e) {
     typeof t == "string" ? e && w[t].delete(e) : q.delete(t);
   };
 }
-function $(t) {
+function _(t) {
   for (const n of q)
     n(t);
   const e = w[t.path];
@@ -226,7 +226,7 @@ export {
   B as defineRouter,
   W as getRoute,
   G as getRouterConfig,
-  x as getRouterRoot,
+  $ as getRouterRoot,
   O as isMatching,
   C as navigate,
   J as onNavigation,
