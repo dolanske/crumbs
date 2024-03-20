@@ -319,7 +319,7 @@ interface NavigateOptions {
  * Navigate to the provided path.
  *
  * @param path Path to navigate to
- * @param replace {optional} Wether to append a new history entry or replace the current one
+ * @param options {NavigateOptions} Navigation options
  * @returns Promise, which resolves when route has been successfully loaded
  */
 async function navigate(path: string, options: NavigateOptions = {}): Promise<ResolvedRoute | null> {
