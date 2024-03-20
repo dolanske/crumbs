@@ -8,8 +8,8 @@ const routes = {
   '/other/:id': other,
 }
 
-defineRouter(routes).run('#app')
-
 onRouteResolve((route) => {
   console.log(route)
 })
+
+defineRouter(routes).run('#app')

@@ -18,6 +18,7 @@ interface SerializedRoute extends Route {
   renderedHtml: Element | null
   hash: string
   query: Record<string, string>
+  props: object
 }
 
 // The currently active route
@@ -29,6 +30,7 @@ interface ResolvedRoute extends Route {
   data: any
   hash: string
   query: Record<string, string>
+  props: object
 }
 
 // Extend the native PopStateEvent with the properties which will be added when
@@ -36,6 +38,7 @@ interface ResolvedRoute extends Route {
 declare interface PopStateEvent {
   state: {
     path: string
+    props: object
   }
 }
 
@@ -63,6 +66,7 @@ function defineRouter(definitions: Router) {
         path,
         query: {},
         hash: '',
+        props: {},
       }
     }
 
@@ -72,6 +76,7 @@ function defineRouter(definitions: Router) {
       renderedHtml: parseToHtml(route.html),
       query: {},
       hash: '',
+      props: {},
     }
   })
 
@@ -80,7 +85,10 @@ function defineRouter(definitions: Router) {
   // Register route listeners. This will execute whenever user uses the browser
   // native navigation
   function popstateHandler(event: PopStateEvent) {
-    navigate(event.state.path)
+    // Props are the only object not being saved in the path itself, so pass
+    // them manually here
+    const { path, props } = event.state
+    navigate(path, { props, isPopState: true })
   }
 
   return {
@@ -107,17 +115,17 @@ function defineRouter(definitions: Router) {
 // @internal
 // Find the  default route path
 function getDefaultRoute(routes: SerializedRoute[]): string {
-  // 1. Look for `default` or `/` route
+  // Look for `default` or `/` route
   let defaultRoute: SerializedRoute | undefined
 
   if (routes.find(route => isMatching(route.path, location.pathname)))
-    return location.pathname
+    return location.pathname + location.search + location.hash
 
   defaultRoute = routes.find(r => r.default || r.path === '/')
   if (defaultRoute)
     return defaultRoute.path
 
-  // 3. Pick the shortest route and return its path
+  // Pick the shortest route and return its path
   defaultRoute = routes.sort((a, b) => a.path.length - b.path.length)[0]
   if (defaultRoute)
     return defaultRoute.path
@@ -204,8 +212,6 @@ function isMatching(sourcePath: string, pathWithValues: string): boolean {
   // Ignore query & search
   sourcePath = new URL(sourcePath, location.origin).pathname
   pathWithValues = new URL(pathWithValues, location.origin).pathname
-
-  // console.log('[isMatching]')
 
   const sourceSplit = sourcePath.split('/')
   const valuesSplit = pathWithValues.split('/')
@@ -296,27 +302,17 @@ function registerLinks() {
       // Only navigate if link is actually matching
       const isMatch = routes.some(r => isMatching(r.path, href))
       if (isMatch)
-        navigate(href, { replace: true })
+        navigate(href)
     })
   }
 }
 
-// TODO
-// second param should be an object, which also accepts the props object,
-// which is passed into event listeners on navigation and resolve, but isnt in the URL ohterwise
-
-// FIXME
-// Loading URL with query parameteres removes them
-
-// TODO
-// REVIEW
-// getRouteProps() which would check current url and match in an object the props which were passed to it on navigation?
-
 interface NavigateOptions {
   hash?: string
-  query?: string | Record<string, string | number | boolean>
+  query?: Record<string, string | number | boolean>
   props?: Record<string, any>
   replace?: boolean
+  isPopState?: boolean
 }
 
 /**
@@ -327,23 +323,32 @@ interface NavigateOptions {
  * @returns Promise, which resolves when route has been successfully loaded
  */
 async function navigate(path: string, options: NavigateOptions = {}): Promise<ResolvedRoute | null> {
+  // Options provided parameters will overwrite URL's
   const {
-    replace,
+    replace = false,
     hash: optionsHash,
     query: optionsQuery,
-    props: optionsProps,
+    props = {},
+    isPopState = false,
   } = options
 
   // eslint-disable-next-line no-async-promise-executor
   const navigationHandler = new Promise<ResolvedRoute | null>(async (resolve, reject) => {
     // Resolve path
-    const {
+    let {
       resolvedPath,
       sourcePath,
       params,
       hash,
       query,
     } = resolvePath(path, routes)
+
+    if (optionsHash)
+      hash = optionsHash
+    if (optionsQuery) {
+      for (const key of Object.keys(optionsQuery))
+        query[key] = String(optionsQuery[key])
+    }
 
     const route = findRoute({ path: sourcePath })
     if (!route)
@@ -353,7 +358,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
 
     // onNavigation () callback run
     // If callback returns false, the navigation is cancelled
-    const result = runOnNavigationCallbacks({ ...route, path, renderedHtml, hash, query })
+    const result = runOnNavigationCallbacks({ ...route, path, renderedHtml, hash, query, props })
     if (result === false)
       resolve(null)
 
@@ -381,17 +386,20 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
       data,
       hash,
       query,
+      props,
     }
 
     const searchParams = new URLSearchParams(query)
     const queryAppend = searchParams.size > 0 ? `?${searchParams.toString()}` : ''
-    const hashAppend = hash.length > 0 ? `#${hash}` : ''
+    const finalPath = resolvedPath + queryAppend + hash
 
-    // history.push / replace
-    if (replace)
-      history.replaceState({ path }, '', resolvedPath + queryAppend + hashAppend)
-    else
-      history.pushState({ path }, '', resolvedPath + queryAppend + hashAppend)
+    if (!isPopState) {
+      // Update the URL. Since props are not path of hte url state, pass them into the state here
+      if (replace)
+        history.replaceState({ path: finalPath, props }, '', finalPath)
+      else
+        history.pushState({ path: finalPath, props }, '', finalPath)
+    }
 
     // Append route to the root
     const root = getRouterRoot()
@@ -418,6 +426,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
         renderedHtml: null,
         hash,
         query,
+        props,
       }, error)
     }
     else {
