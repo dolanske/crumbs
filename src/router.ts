@@ -609,4 +609,5 @@ export {
   type ResolvedRoute,
   type Route,
   type Router,
+  type NavigateOptions
 }
