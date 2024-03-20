@@ -5,20 +5,11 @@ import other from './routes/other.html?raw'
 
 const routes = {
   '/home': main,
-  '/other/:id': {
-    html: other,
-    fallback: '<span>Error loading APi</span>',
-    async loader({ id }: { id: number }) {
-      return fetch(`https://swapi.dev/api/people/${id}`)
-        .then(r => r.json())
-        .then(d => d)
-    },
-  },
+  '/other/:id': other,
 }
 
-defineRouter(routes).run('#app')
-
 onRouteResolve((route) => {
-  // eslint-disable-next-line no-console
-  console.log(route.path)
+  console.log(route)
 })
+
+defineRouter(routes).run('#app')

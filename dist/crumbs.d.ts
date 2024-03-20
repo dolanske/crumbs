@@ -38,7 +38,15 @@ export declare function isMatching(sourcePath: string, pathWithValues: string): 
  * @param replace {optional} Wether to append a new history entry or replace the current one
  * @returns Promise, which resolves when route has been successfully loaded
  */
-export declare function navigate(path: string, replace?: boolean): Promise<ResolvedRoute | null>;
+export declare function navigate(path: string, options?: NavigateOptions): Promise<ResolvedRoute | null>;
+
+declare interface NavigateOptions {
+    hash?: string;
+    query?: Record<string, string | number | boolean>;
+    props?: Record<string, any>;
+    replace?: boolean;
+    isPopState?: boolean;
+}
 
 declare type NavigationErrorCb = (route: SerializedRoute | null, error: any) => void;
 
@@ -68,6 +76,8 @@ declare interface ResolvedPathOptions {
     resolvedPath: string;
     sourcePath: string;
     params: object;
+    query: Record<string, string>;
+    hash: string;
 }
 
 export declare interface ResolvedRoute extends Route {
@@ -76,9 +86,12 @@ export declare interface ResolvedRoute extends Route {
     resolvedPath: string;
     params?: object;
     data: any;
+    hash: string;
+    query: Record<string, string>;
+    props: object;
 }
 
-export declare function resolvePath(path: string, routes: SerializedRoute[]): ResolvedPathOptions;
+export declare function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOptions;
 
 export declare interface Route {
     title?: string;
@@ -94,6 +107,9 @@ export declare type Router = Record<string, Route | string>;
 export declare interface SerializedRoute extends Route {
     path: string;
     renderedHtml: Element | null;
+    hash: string;
+    query: Record<string, string>;
+    props: object;
 }
 
 declare type ShallowReadonly<T> = {

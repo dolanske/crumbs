@@ -16,6 +16,9 @@ interface Route {
 interface SerializedRoute extends Route {
   path: string
   renderedHtml: Element | null
+  hash: string
+  query: Record<string, string>
+  props: object
 }
 
 // The currently active route
@@ -25,6 +28,9 @@ interface ResolvedRoute extends Route {
   resolvedPath: string
   params?: object
   data: any
+  hash: string
+  query: Record<string, string>
+  props: object
 }
 
 // Extend the native PopStateEvent with the properties which will be added when
@@ -32,6 +38,7 @@ interface ResolvedRoute extends Route {
 declare interface PopStateEvent {
   state: {
     path: string
+    props: object
   }
 }
 
@@ -57,6 +64,9 @@ function defineRouter(definitions: Router) {
         html: route,
         renderedHtml: parseToHtml(route),
         path,
+        query: {},
+        hash: '',
+        props: {},
       }
     }
 
@@ -64,6 +74,9 @@ function defineRouter(definitions: Router) {
       ...route,
       path,
       renderedHtml: parseToHtml(route.html),
+      query: {},
+      hash: '',
+      props: {},
     }
   })
 
@@ -72,7 +85,10 @@ function defineRouter(definitions: Router) {
   // Register route listeners. This will execute whenever user uses the browser
   // native navigation
   function popstateHandler(event: PopStateEvent) {
-    navigate(event.state.path)
+    // Props are the only object not being saved in the path itself, so pass
+    // them manually here
+    const { path, props } = event.state
+    navigate(path, { props, isPopState: true })
   }
 
   return {
@@ -99,17 +115,17 @@ function defineRouter(definitions: Router) {
 // @internal
 // Find the  default route path
 function getDefaultRoute(routes: SerializedRoute[]): string {
-  // 1. Look for `default` or `/` route
+  // Look for `default` or `/` route
   let defaultRoute: SerializedRoute | undefined
 
   if (routes.find(route => isMatching(route.path, location.pathname)))
-    return location.pathname
+    return location.pathname + location.search + location.hash
 
   defaultRoute = routes.find(r => r.default || r.path === '/')
   if (defaultRoute)
     return defaultRoute.path
 
-  // 3. Pick the shortest route and return its path
+  // Pick the shortest route and return its path
   defaultRoute = routes.sort((a, b) => a.path.length - b.path.length)[0]
   if (defaultRoute)
     return defaultRoute.path
@@ -193,6 +209,10 @@ function isMatching(sourcePath: string, pathWithValues: string): boolean {
   if (sourcePath === pathWithValues)
     return true
 
+  // Ignore query & search
+  sourcePath = new URL(sourcePath, location.origin).pathname
+  pathWithValues = new URL(pathWithValues, location.origin).pathname
+
   const sourceSplit = sourcePath.split('/')
   const valuesSplit = pathWithValues.split('/')
 
@@ -212,12 +232,20 @@ interface ResolvedPathOptions {
   resolvedPath: string
   sourcePath: string
   params: object
+  query: Record<string, string>
+  hash: string
 }
 
 // @internal
 // Takes a path, check if it is matching with any of the default paths
 // Extracts values based on the
-function resolvePath(path: string, routes: SerializedRoute[]): ResolvedPathOptions {
+function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOptions {
+  // 0.
+  const url = new URL(_path, location.origin)
+  const hash = url.hash
+  const query = Object.fromEntries(url.searchParams)
+  const path = url.pathname
+
   // 1. Match current path against an existing route
   const source = routes.find(r => isMatching(r.path, path))
   if (!source)
@@ -244,6 +272,8 @@ function resolvePath(path: string, routes: SerializedRoute[]): ResolvedPathOptio
     resolvedPath: path,
     sourcePath: source.path,
     params,
+    hash,
+    query,
   }
 }
 
@@ -272,27 +302,53 @@ function registerLinks() {
       // Only navigate if link is actually matching
       const isMatch = routes.some(r => isMatching(r.path, href))
       if (isMatch)
-        navigate(href, true)
+        navigate(href)
     })
   }
+}
+
+interface NavigateOptions {
+  hash?: string
+  query?: Record<string, string | number | boolean>
+  props?: Record<string, any>
+  replace?: boolean
+  isPopState?: boolean
 }
 
 /**
  * Navigate to the provided path.
  *
  * @param path Path to navigate to
- * @param replace {optional} Wether to append a new history entry or replace the current one
+ * @param options {NavigateOptions} Navigation options
  * @returns Promise, which resolves when route has been successfully loaded
  */
-async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute | null> {
+async function navigate(path: string, options: NavigateOptions = {}): Promise<ResolvedRoute | null> {
+  // Options provided parameters will overwrite URL's
+  const {
+    replace = false,
+    hash: optionsHash,
+    query: optionsQuery,
+    props = {},
+    isPopState = false,
+  } = options
+
   // eslint-disable-next-line no-async-promise-executor
   const navigationHandler = new Promise<ResolvedRoute | null>(async (resolve, reject) => {
-    // 1. Resolve path
-    const {
+    // Resolve path
+    let {
       resolvedPath,
       sourcePath,
       params,
+      hash,
+      query,
     } = resolvePath(path, routes)
+
+    if (optionsHash)
+      hash = optionsHash
+    if (optionsQuery) {
+      for (const key of Object.keys(optionsQuery))
+        query[key] = String(optionsQuery[key])
+    }
 
     const route = findRoute({ path: sourcePath })
     if (!route)
@@ -300,13 +356,13 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
 
     let renderedHtml = parseToHtml(route.html)
 
-    // 2. onNavigation () callback run
+    // onNavigation () callback run
     // If callback returns false, the navigation is cancelled
-    const result = runOnNavigationCallbacks({ ...route, path, renderedHtml })
+    const result = runOnNavigationCallbacks({ ...route, path, renderedHtml, hash, query, props })
     if (result === false)
       resolve(null)
 
-    // 3. Check if loader has data
+    // Check if loader has data
     let data
     if (route.loader) {
       data = await route.loader(params)
@@ -320,7 +376,7 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
         })
     }
 
-    // 4. set currentRoute variable
+    // set currentRoute variable
     currentRoute = {
       ...route,
       path: sourcePath,
@@ -328,27 +384,33 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
       renderedHtml,
       params,
       data,
+      hash,
+      query,
+      props,
     }
 
-    // 5. history.push / replace
-    if (replace)
-      history.replaceState({ path }, '', resolvedPath)
-    else
-      history.pushState({ path }, '', resolvedPath)
+    const searchParams = new URLSearchParams(query)
+    const queryAppend = searchParams.size > 0 ? `?${searchParams.toString()}` : ''
+    const finalPath = resolvedPath + queryAppend + hash
+
+    if (!isPopState) {
+      // Update the URL. Since props are not path of hte url state, pass them into the state here
+      if (replace)
+        history.replaceState({ path: finalPath, props }, '', finalPath)
+      else
+        history.pushState({ path: finalPath, props }, '', finalPath)
+    }
 
     // Append route to the root
     const root = getRouterRoot()
     root.replaceChildren(currentRoute.renderedHtml)
     registerLinks()
 
-    // 6. Set document title if it has it
+    // Set document title if it has it
     if (route.title)
       document.title = route.title
 
-    // 7. onRouteResolve() callback run
     runOnRouteResolveCallbacks(currentRoute)
-
-    // 8. Resolve
     resolve(currentRoute)
   })
 
@@ -357,8 +419,15 @@ async function navigate(path: string, replace?: boolean): Promise<ResolvedRoute 
   navigationHandler.catch((error) => {
     const route = findRoute({ path })
     if (route) {
-      const { sourcePath } = resolvePath(path, routes)
-      runOnRouteErrorCallbacks({ ...route, path: sourcePath, renderedHtml: null }, error)
+      const { sourcePath, hash, query } = resolvePath(path, routes)
+      runOnRouteErrorCallbacks({
+        ...route,
+        path: sourcePath,
+        renderedHtml: null,
+        hash,
+        query,
+        props,
+      }, error)
     }
     else {
       runOnRouteErrorCallbacks(null, error)
