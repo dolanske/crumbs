@@ -31,7 +31,7 @@ function B(t) {
      * @param selector DOM selector
      */
     run: (o) => {
-      k = o, window.addEventListener("popstate", n), x(), C(I(e));
+      k = o, window.addEventListener("popstate", n), A(), C(I(e));
     },
     /**
      * Stops the router. Navigation will no longer work.
@@ -52,7 +52,7 @@ function I(t) {
 function E(t) {
   return t instanceof Element ? t : new DOMParser().parseFromString(t, "text/html").body.firstElementChild;
 }
-function $() {
+function x() {
   if (!k)
     throw new Error("No root selector found. Did you start the router?");
   const t = document.querySelector(k);
@@ -89,28 +89,28 @@ function O(t, e) {
   return n.every((r, s) => r.startsWith(":") ? !0 : r === o[s]);
 }
 function M(t, e) {
-  const n = new URL(t, location.origin), o = n.hash, r = Object.fromEntries(n.searchParams), s = n.pathname, d = e.find((i) => O(i.path, s));
-  if (!d)
+  const n = new URL(t, location.origin), o = n.hash, r = Object.fromEntries(n.searchParams), s = n.pathname, h = e.find((i) => O(i.path, s));
+  if (!h)
     throw new Error(`No matching route found for the path "${s}"`);
-  const f = d.path.split("/"), u = s.split("/"), l = {};
+  const f = h.path.split("/"), u = s.split("/"), l = {};
   for (let i = 0; i < f.length; i++) {
     const c = f[i];
     if (!c || !c.startsWith(":"))
       continue;
-    const h = c.substring(1), p = u[i];
-    l[h] = p;
+    const p = c.substring(1), d = u[i];
+    l[p] = d;
   }
   return {
     resolvedPath: s,
-    sourcePath: d.path,
+    sourcePath: h.path,
     params: l,
     hash: o,
     query: r
   };
 }
-function x() {
+function A() {
   var n;
-  const e = $().querySelectorAll("a[link]");
+  const e = x().querySelectorAll("a[link]");
   for (const o of e) {
     const r = (n = o.getAttributeNode("href")) == null ? void 0 : n.value;
     r && o.addEventListener("click", (s) => {
@@ -124,48 +124,48 @@ async function C(t, e = {}) {
     hash: o,
     query: r,
     props: s = {},
-    isPopState: d = !1
+    isPopState: h = !1
   } = e, f = new Promise(async (u, l) => {
     let {
       resolvedPath: i,
       sourcePath: c,
-      params: h,
-      hash: p,
+      params: p,
+      hash: d,
       query: S
     } = M(t, v);
-    if (o && (p = String(o)), r)
+    if (o && (d = String(o)), r)
       for (const g of Object.keys(r))
         S[g] = String(r[g]);
     const a = j({ path: c });
     if (!a)
       return l(new Error("Invalid path. Could not match route."));
     let P = E(a.html);
-    T({ ...a, path: t, renderedHtml: P, hash: p, query: S, props: s }) === !1 && u(null);
+    T({ ...a, path: t, renderedHtml: P, hash: d, query: S, props: s }) === !1 && u(null);
     let L;
-    a.loader && (L = await a.loader(h).then((g) => g).catch((g) => a.fallback ? (P = E(a.fallback), null) : l(new Error(g)))), m = Object.freeze({
+    a.loader && (L = await a.loader(p).then((g) => g).catch((g) => a.fallback ? (P = E(a.fallback), null) : l(new Error(g)))), m = Object.freeze({
       ...a,
       path: c,
       resolvedPath: i,
       renderedHtml: P,
-      params: h,
+      params: p,
       data: L,
-      hash: p,
+      hash: d,
       query: S,
       props: s
     });
-    const U = new URLSearchParams(S), A = U.size > 0 ? `?${U.toString()}` : "", b = `${i + A}#${p}`;
-    d || (n ? history.replaceState({ path: b, props: s }, "", b) : history.pushState({ path: b, props: s }, "", b)), $().replaceChildren(m.renderedHtml), x(), a.title && (document.title = a.title), _(m), u(m);
+    const U = new URLSearchParams(S), $ = U.size > 0 ? `?${U.toString()}` : "", b = i + $ + (d ? `#${d}` : "");
+    h || (n ? history.replaceState({ path: b, props: s }, "", b) : history.pushState({ path: b, props: s }, "", b)), x().replaceChildren(m.renderedHtml), A(), a.title && (document.title = a.title), _(m), u(m);
   });
   return f.catch((u) => {
     const l = j({ path: t });
     if (l) {
-      const { sourcePath: i, hash: c, query: h } = M(t, v);
+      const { sourcePath: i, hash: c, query: p } = M(t, v);
       z({
         ...l,
         path: i,
         renderedHtml: null,
         hash: c,
-        query: h,
+        query: p,
         props: s
       }, u);
     } else
@@ -226,7 +226,7 @@ export {
   B as defineRouter,
   W as getRoute,
   G as getRouterConfig,
-  $ as getRouterRoot,
+  x as getRouterRoot,
   O as isMatching,
   C as navigate,
   J as onNavigation,

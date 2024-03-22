@@ -391,7 +391,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
 
     const searchParams = new URLSearchParams(query)
     const queryAppend = searchParams.size > 0 ? `?${searchParams.toString()}` : ''
-    const finalPath = `${resolvedPath + queryAppend}#${hash}`
+    const finalPath = resolvedPath + queryAppend + (hash ? `#${hash}` : '')
 
     if (!isPopState) {
       // Update the URL. Since props are not path of hte url state, pass them into the state here
@@ -609,5 +609,5 @@ export {
   type ResolvedRoute,
   type Route,
   type Router,
-  type NavigateOptions
+  type NavigateOptions,
 }
