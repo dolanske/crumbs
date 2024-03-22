@@ -9,7 +9,6 @@ interface Route {
   fallback?: string | Element
   loader?: (params: any) => Promise<any>
   default?: boolean
-  lazy?: boolean
 }
 
 // Serialized route after router has been initialized
