@@ -55,6 +55,8 @@ interface Route {
   // is not found, it will then check if any route is set as `default` and if it
   // finds one, it loads that route
   default?: boolean
+  // You can freely define any data which will be available on the route object
+  meta?: Record<string, any>
 }
 ```
 
@@ -123,6 +125,19 @@ interface SerializedRoute extends Route {
   query: Record<string, string>
   props: object
 }
+```
+
+It is possible to cancel navigation to a route, by returning false from `onNavigation` callback. The navigation can be async, so you can fetch what you need before deciding to cancel the navigation or not.
+
+```ts
+onNavigation(async (route) => {
+  if (route.meta.requiresAuth) {
+    const session = await getSession()
+
+    if (!session.user)
+      return false
+  }
+})
 ```
 
 ####  `onRouteResolve`

@@ -3,12 +3,12 @@ import type { ShallowReadonly } from './type-helpers'
 // Initial user input
 interface Route {
   title?: string
-
   html: string | Element
   // Fallback should be used together with loader, to display error state
   fallback?: string | Element
   loader?: (params: any) => Promise<any>
   default?: boolean
+  meta?: Record<string, any>
 }
 
 // Serialized route after router has been initialized
@@ -48,6 +48,9 @@ let routes: SerializedRoute[] = []
 let rootSelector: string = ''
 let currentRoute: null | ResolvedRoute
 
+// Stores registered links so they can be unregistered when router stops
+const registeredLinks: Array<() => void> = []
+
 // Returns the current active route
 function getRoute(): Readonly<ResolvedRoute> | null {
   return currentRoute
@@ -66,6 +69,7 @@ function defineRouter(definitions: Router) {
         query: {},
         hash: '',
         props: {},
+        meta: {},
       }
     }
 
@@ -76,6 +80,7 @@ function defineRouter(definitions: Router) {
       query: {},
       hash: '',
       props: {},
+      meta: route.meta ?? {},
     }
   })
 
@@ -107,6 +112,7 @@ function defineRouter(definitions: Router) {
      */
     stop() {
       window.removeEventListener('popstate', popstateHandler)
+      registeredLinks.map(unregister => unregister())
     },
   }
 }
@@ -293,16 +299,19 @@ function registerLinks() {
     if (!href)
       continue
 
-    // When links are garbage collected, event listeners are automatically
-    // removed, so this does not need a stopper function.
-    link.addEventListener('click', (event: Event) => {
+    const handler = (href: string) => (event: Event) => {
       event.preventDefault()
 
       // Only navigate if link is actually matching
       const isMatch = routes.some(r => isMatching(r.path, href))
       if (isMatch)
         navigate(href)
-    })
+    }
+
+    // When links are garbage collected, event listeners are automatically
+    // removed, so this does not need a stopper function.
+    link.addEventListener('click', handler(href))
+    registeredLinks.push(() => link.removeEventListener('click', handler(href)))
   }
 }
 
@@ -357,7 +366,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
 
     // onNavigation () callback run
     // If callback returns false, the navigation is cancelled
-    const result = runOnNavigationCallbacks({ ...route, path, renderedHtml, hash, query, props })
+    const result = await runOnNavigationCallbacks({ ...route, path, renderedHtml, hash, query, props })
     if (result === false)
       resolve(null)
 
@@ -474,7 +483,7 @@ function onNavigation(path: string | OnNavigationCbFn, cb?: OnNavigationCbFn) {
 
 // @internal
 // Executes all the callbacks for given route
-function runOnNavigationCallbacks(route: SerializedRoute): boolean | void {
+function runOnNavigationCallbacks(route: SerializedRoute): boolean | void | Promise<boolean | void> {
   for (const cb of onNavigationCbs)
     cb(route)
 

@@ -99,7 +99,7 @@ export declare interface Route {
     fallback?: string | Element;
     loader?: (params: any) => Promise<any>;
     default?: boolean;
-    lazy?: boolean;
+    meta?: Record<string, any>;
 }
 
 export declare type Router = Record<string, Route | string>;
