@@ -2,6 +2,10 @@
 
 SPA router for framework-less web applications using HTML files. This library assumes you're using it in an environment, which can import HTML files as strings.
 
+```bash
+npm i @dolanske/crumbs
+```
+
 ## Usage
 
 ```ts
