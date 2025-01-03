@@ -1,7 +1,7 @@
 {
   "name": "@dolanske/crumbs",
   "type": "module",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": false,
   "description": "SPA router for framework-less web applications using HTML files.",
   "author": "dolanske",

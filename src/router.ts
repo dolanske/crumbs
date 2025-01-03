@@ -399,7 +399,8 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
 
     const searchParams = new URLSearchParams(query)
     const queryAppend = searchParams.size > 0 ? `?${searchParams.toString()}` : ''
-    const finalPath = resolvedPath + queryAppend + (hash ? `#${hash}` : '')
+    // #2 When route is loaded with a hash, a new hash is prepended on every reload
+    const finalPath = resolvedPath + queryAppend + (hash ? `${hash.startsWith('#') ? '' : '#'}${hash}` : '')
 
     if (!isPopState) {
       // Update the URL. Since props are not path of hte url state, pass them into the state here

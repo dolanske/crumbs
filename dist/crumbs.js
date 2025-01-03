@@ -1,5 +1,5 @@
 let D = {}, R = [], P = "", g;
-const x = [];
+const $ = [];
 function B() {
   return g;
 }
@@ -34,13 +34,13 @@ function G(t) {
      * @param selector DOM selector
      */
     run: (o) => {
-      P = o, window.addEventListener("popstate", n), $(), C(T(e));
+      P = o, window.addEventListener("popstate", n), A(), C(T(e));
     },
     /**
      * Stops the router. Navigation will no longer work.
      */
     stop() {
-      window.removeEventListener("popstate", n), x.map((o) => o());
+      window.removeEventListener("popstate", n), $.map((o) => o());
     }
   };
 }
@@ -55,7 +55,7 @@ function T(t) {
 function E(t) {
   return t instanceof Element ? t : new DOMParser().parseFromString(t, "text/html").body.firstElementChild;
 }
-function A() {
+function x() {
   if (!P)
     throw new Error("No root selector found. Did you start the router?");
   const t = document.querySelector(P);
@@ -95,13 +95,13 @@ function M(t, e) {
   const n = new URL(t, location.origin), o = n.hash, r = Object.fromEntries(n.searchParams), s = n.pathname, c = e.find((i) => N(i.path, s));
   if (!c)
     throw new Error(`No matching route found for the path "${s}"`);
-  const d = c.path.split("/"), f = s.split("/"), a = {};
-  for (let i = 0; i < d.length; i++) {
-    const u = d[i];
+  const h = c.path.split("/"), f = s.split("/"), a = {};
+  for (let i = 0; i < h.length; i++) {
+    const u = h[i];
     if (!u || !u.startsWith(":"))
       continue;
-    const p = u.substring(1), h = f[i];
-    a[p] = h;
+    const p = u.substring(1), d = f[i];
+    a[p] = d;
   }
   return {
     resolvedPath: s,
@@ -111,17 +111,17 @@ function M(t, e) {
     query: r
   };
 }
-function $() {
+function A() {
   var n;
-  const e = A().querySelectorAll("a[link]");
+  const e = x().querySelectorAll("a[link]");
   for (const o of e) {
     const r = (n = o.getAttributeNode("href")) == null ? void 0 : n.value;
     if (!r)
       continue;
-    const s = (c) => (d) => {
-      d.preventDefault(), R.some((a) => N(a.path, c)) && C(c);
+    const s = (c) => (h) => {
+      h.preventDefault(), R.some((a) => N(a.path, c)) && C(c);
     };
-    o.addEventListener("click", s(r)), x.push(() => o.removeEventListener("click", s(r)));
+    o.addEventListener("click", s(r)), $.push(() => o.removeEventListener("click", s(r)));
   }
 }
 async function C(t, e = {}) {
@@ -131,22 +131,22 @@ async function C(t, e = {}) {
     query: r,
     props: s = {},
     isPopState: c = !1
-  } = e, d = new Promise(async (f, a) => {
+  } = e, h = new Promise(async (f, a) => {
     let {
       resolvedPath: i,
       sourcePath: u,
       params: p,
-      hash: h,
+      hash: d,
       query: S
     } = M(t, R);
-    if (o && (h = String(o)), r)
+    if (o && (d = String(o)), r)
       for (const m of Object.keys(r))
         S[m] = String(r[m]);
     const l = j({ path: u });
     if (!l)
       return a(new Error("Invalid path. Could not match route."));
     let k = E(l.html);
-    await _({ ...l, path: t, renderedHtml: k, hash: h, query: S, props: s }) === !1 && f(null);
+    await W({ ...l, path: t, renderedHtml: k, hash: d, query: S, props: s }) === !1 && f(null);
     let O;
     l.loader && (O = await l.loader(p).then((m) => m).catch((m) => l.fallback ? (k = E(l.fallback), null) : a(new Error(m)))), g = Object.freeze({
       ...l,
@@ -155,14 +155,14 @@ async function C(t, e = {}) {
       renderedHtml: k,
       params: p,
       data: O,
-      hash: h,
+      hash: d,
       query: S,
       props: s
     });
-    const U = new URLSearchParams(S), I = U.size > 0 ? `?${U.toString()}` : "", b = i + I + (h ? `#${h}` : "");
-    c || (n ? history.replaceState({ path: b, props: s }, "", b) : history.pushState({ path: b, props: s }, "", b)), A().replaceChildren(g.renderedHtml), $(), l.title && (document.title = l.title), F(g), f(g);
+    const U = new URLSearchParams(S), I = U.size > 0 ? `?${U.toString()}` : "", b = i + I + (d ? `${d.startsWith("#") ? "" : "#"}${d}` : "");
+    c || (n ? history.replaceState({ path: b, props: s }, "", b) : history.pushState({ path: b, props: s }, "", b)), x().replaceChildren(g.renderedHtml), A(), l.title && (document.title = l.title), _(g), f(g);
   });
-  return d.catch((f) => {
+  return h.catch((f) => {
     const a = j({ path: t });
     if (a) {
       const { sourcePath: i, hash: u, query: p } = M(t, R);
@@ -176,7 +176,7 @@ async function C(t, e = {}) {
       }, f);
     } else
       z(null, f);
-  }), d;
+  }), h;
 }
 const w = {}, H = /* @__PURE__ */ new Set();
 function K(t, e) {
@@ -190,7 +190,7 @@ function K(t, e) {
     typeof t == "string" ? e && w[t].delete(e) : H.delete(t);
   };
 }
-function _(t) {
+function W(t) {
   for (const n of H)
     n(t);
   const e = w[t.path];
@@ -204,7 +204,7 @@ function X(t, e) {
     typeof t == "string" ? e && y[t].delete(e) : L.delete(t);
   };
 }
-function F(t) {
+function _(t) {
   for (const n of L)
     n(t);
   const e = y[t.path];
@@ -232,7 +232,7 @@ export {
   G as defineRouter,
   B as getRoute,
   J as getRouterConfig,
-  A as getRouterRoot,
+  x as getRouterRoot,
   N as isMatching,
   C as navigate,
   K as onNavigation,
