@@ -6,39 +6,44 @@ interface Route {
   html: string | Element
   // Fallback should be used together with loader, to display error state
   fallback?: string | Element
-  loader?: (params: any) => Promise<any>
+  // Declared as a method on purpose: method parameters are checked
+  // bivariantly, so loaders typed with a narrower params shape such as
+  // `({ id }: { id: string })` are accepted.
+  // eslint-disable-next-line ts/method-signature-style
+  loader?(params: Record<string, string>): Promise<any>
   default?: boolean
   meta?: Record<string, any>
 }
 
+type RenderedHtml = Element | DocumentFragment
+
 // Serialized route after router has been initialized
 interface SerializedRoute extends Route {
   path: string
-  renderedHtml: Element | null
+  renderedHtml: RenderedHtml | null
   hash: string
   query: Record<string, string>
-  props: object
+  props: Record<string, any>
 }
 
 // The currently active route
 interface ResolvedRoute extends Route {
   path: string
-  renderedHtml: Element
+  renderedHtml: RenderedHtml
   resolvedPath: string
-  params?: object
+  params: Record<string, string>
   data: any
   hash: string
   query: Record<string, string>
-  props: object
+  props: Record<string, any>
 }
 
-// Extend the native PopStateEvent with the properties which will be added when
-// users navigate to other pages using built-in browser navigation.
-declare interface PopStateEvent {
-  state: {
-    path: string
-    props: object
-  }
+// Shape of the object stored in `history.state` for every entry the router
+// creates. Entries the router did not create (for example the very first one)
+// have a `null` state.
+interface HistoryState {
+  path: string
+  props: Record<string, any>
 }
 
 type Router = Record<string, Route | string>
@@ -46,107 +51,181 @@ type Router = Record<string, Route | string>
 let __baseRouter: Router = {}
 let routes: SerializedRoute[] = []
 let rootSelector: string = ''
-let currentRoute: null | ResolvedRoute
+let currentRoute: null | ResolvedRoute = null
+let running = false
 
-// Stores registered links so they can be unregistered when router stops
-const registeredLinks: Array<() => void> = []
+// Incremented on every navigation. A navigation whose id is no longer the
+// latest one has been superseded and must not touch the DOM or history.
+let navigationId = 0
 
 // Returns the current active route
 function getRoute(): Readonly<ResolvedRoute> | null {
   return currentRoute
 }
 
-// Creates router by serializing all the provided routes and
+// Creates router by serializing all the provided routes
 function defineRouter(definitions: Router) {
+  if (running)
+    stop()
+
   __baseRouter = Object.freeze(definitions)
 
-  const serializedRoutes: SerializedRoute[] = Object.entries(definitions).map(([path, route]) => {
-    if (typeof route === 'string') {
-      return {
-        html: route,
-        renderedHtml: parseToHtml(route),
-        path,
-        query: {},
-        hash: '',
-        props: {},
-        meta: {},
-      }
-    }
+  routes = Object.entries(definitions).map(([path, route]) => {
+    const base = typeof route === 'string' ? { html: route } : route
 
     return {
-      ...route,
-      path,
-      renderedHtml: parseToHtml(route.html),
+      ...base,
+      path: normalizePath(path),
+      renderedHtml: null,
       query: {},
       hash: '',
       props: {},
-      meta: route.meta ?? {},
+      meta: base.meta ?? {},
     }
   })
 
-  routes = serializedRoutes
-
-  // Register route listeners. This will execute whenever user uses the browser
-  // native navigation
-  function popstateHandler(event: PopStateEvent) {
-    // Props are the only object not being saved in the path itself, so pass
-    // them manually here
-    const { path, props } = event.state
-    navigate(path, { props, isPopState: true })
-  }
-
   return {
     /**
-     * Start the router.
+     * Start the router. Resolves once the initial route has been rendered (or
+     * failed to render, in which case `onRouteError` has been called).
      *
      * @param selector DOM selector
      */
     run: (selector: string) => {
+      if (running)
+        stop()
+
       rootSelector = selector
+      // Validate the root early, so a wrong selector fails loudly on startup
+      getRouterRoot()
+
+      running = true
       window.addEventListener('popstate', popstateHandler)
-      registerLinks()
-      navigate(getDefaultRoute(serializedRoutes))
+      document.addEventListener('click', clickHandler)
+
+      // The initial navigation replaces the current history entry instead of
+      // pushing a new one. Otherwise the entry that existed before the router
+      // started would remain, without any state, and pressing Back would land
+      // on it.
+      return navigate(getDefaultRoute(routes), { replace: true }).catch(() => null)
     },
     /**
      * Stops the router. Navigation will no longer work.
      */
-    stop() {
-      window.removeEventListener('popstate', popstateHandler)
-      registeredLinks.map(unregister => unregister())
-    },
+    stop,
   }
 }
 
 // @internal
-// Find the  default route path
+// Stops the router and resets its runtime state. Route definitions and
+// registered callbacks are kept.
+function stop() {
+  running = false
+  rootSelector = ''
+  currentRoute = null
+  navigationId++
+  window.removeEventListener('popstate', popstateHandler)
+  document.removeEventListener('click', clickHandler)
+}
+
+// @internal
+// Executes whenever user uses the browser native navigation
+function popstateHandler(event: PopStateEvent) {
+  const state = event.state as HistoryState | null
+  // Entries which were not created by the router carry no state. Fall back to
+  // whatever the address bar says.
+  const path = state?.path ?? currentLocation()
+  // Props are the only object not being saved in the path itself, so pass
+  // them manually here
+  navigate(path, { props: state?.props ?? {}, isPopState: true }).catch(() => {})
+}
+
+// @internal
+// Delegated click handler. Any <a link> element anywhere in the document
+// navigates through the router instead of reloading the page, provided the
+// click is a plain left click, the link is same-origin and it matches a route.
+function clickHandler(event: MouseEvent) {
+  if (event.defaultPrevented || event.button !== 0)
+    return
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+    return
+
+  const target = event.target as Element | null
+  const link = target?.closest?.('a[link]')
+  if (!link)
+    return
+
+  const href = link.getAttribute('href')
+  if (!href)
+    return
+
+  const linkTarget = link.getAttribute('target')
+  if (linkTarget && linkTarget !== '_self')
+    return
+
+  const url = new URL(href, location.href)
+  if (url.origin !== location.origin)
+    return
+
+  // Only navigate if link is actually matching, otherwise let the browser
+  // handle it
+  if (!matchRoute(routes, url.pathname))
+    return
+
+  event.preventDefault()
+  navigate(url.pathname + url.search + url.hash).catch(() => {})
+}
+
+// @internal
+function currentLocation(): string {
+  return location.pathname + location.search + location.hash
+}
+
+// @internal
+// Find the default route path
 function getDefaultRoute(routes: SerializedRoute[]): string {
-  // Look for `default` or `/` route
-  let defaultRoute: SerializedRoute | undefined
+  // 1. The current URL matches a route
+  if (matchRoute(routes, location.pathname))
+    return currentLocation()
 
-  if (routes.find(route => isMatching(route.path, location.pathname)))
-    return location.pathname + location.search + location.hash
+  // 2. Look for `default` or `/` route
+  const explicit = routes.find(r => r.default || r.path === '/')
+  if (explicit)
+    return explicit.path
 
-  defaultRoute = routes.find(r => r.default || r.path === '/')
-  if (defaultRoute)
-    return defaultRoute.path
+  // 3. Pick the shortest static route. Sort a copy, so the lookup order of the
+  // route table is not changed.
+  const shortest = routes
+    .filter(r => !isDynamic(r.path))
+    .sort((a, b) => a.path.length - b.path.length)[0]
+  if (shortest)
+    return shortest.path
 
-  // Pick the shortest route and return its path
-  defaultRoute = routes.sort((a, b) => a.path.length - b.path.length)[0]
-  if (defaultRoute)
-    return defaultRoute.path
-
-  // return ''
   throw new Error('No default route found. Please define one by settings its path to `/` or adding the `default` property to the route definitions. Note, it is not possible to set dynamic routes as default routes.')
 }
 
 // @internal
-// Converts string template into a piece of DOM
-function parseToHtml(template: string | Element): Element {
+// Converts string template into a piece of DOM. A template with a single root
+// element yields that element, anything else yields a DocumentFragment
+// containing every parsed node.
+function parseToHtml(template: string | Element): RenderedHtml {
   if (template instanceof Element)
     return template
-  const parser = new DOMParser()
-  const raw = parser.parseFromString(template, 'text/html')
-  return raw.body.firstElementChild!
+
+  const tpl = document.createElement('template')
+  tpl.innerHTML = template
+  const content = tpl.content
+
+  const meaningful = Array.from(content.childNodes).filter((node) => {
+    if (node.nodeType === Node.ELEMENT_NODE)
+      return true
+    return node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim().length > 0
+  })
+
+  if (meaningful.length === 1 && meaningful[0].nodeType === Node.ELEMENT_NODE)
+    return meaningful[0] as Element
+
+  return content
 }
 
 // Returns the router root dom node, or crashes (as it should)
@@ -169,108 +248,126 @@ type FindRouteOptions = Record<'path', string> | Record<'title', string> | Recor
  * Find a route based on some of its properties.
  *
  * @param option An object with a single property
- * @returns Route | undefined
+ * @returns SerializedRoute | undefined
  */
-function findRoute(option: FindRouteOptions): Route | undefined {
+function findRoute(option: FindRouteOptions): SerializedRoute | undefined {
   const [key, value] = Object.entries(option)[0]
 
   return routes.find((r) => {
     switch (key) {
       case 'path':
+        return r.path === normalizePath(value as string)
+
       case 'html':
-      case 'title': {
+      case 'title':
         return r[key] === value
-      }
 
-      case 'startsWith': {
-        return r.path.startsWith(value)
-      }
+      case 'startsWith':
+        return r.path.startsWith(value as string)
 
-      case 'renderedHtml': {
-        return r.renderedHtml?.isEqualNode(value)
-      }
+      case 'renderedHtml':
+        return r.renderedHtml?.isEqualNode(value as Element) ?? false
 
-      default: {
-        return null
-      }
+      default:
+        return false
     }
   })
 }
 
+// @internal
+// Removes a trailing slash (except for the root path), so `/users/` and
+// `/users` are treated as the same route.
+function normalizePath(path: string): string {
+  return path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
+}
+
+// @internal
+// Splits a path (or a full URL) into its normalized pathname segments
+function splitPath(path: string): string[] {
+  return normalizePath(new URL(path, location.origin).pathname).split('/')
+}
+
+// @internal
+function isDynamic(path: string): boolean {
+  return path.split('/').some(segment => segment.startsWith(':'))
+}
+
+// @internal
+function countDynamicSegments(path: string): number {
+  return path.split('/').filter(segment => segment.startsWith(':')).length
+}
+
 /**
- * Checks wether two paths are matching. A path is matching, if it's dynamic
+ * Checks whether two paths are matching. A path is matching, if its dynamic
  * parameter definitions are that of a path, which has them replaced with actual
  * values.
  *
- * For example `/main/users/:id` should match with `/main/users/10` and so on...
+ * For example `/main/users/:id` should match with `/main/users/10` and so on.
+ * Both paths must have the same amount of segments and dynamic segments must
+ * be filled with a non-empty value.
  *
  * @param sourcePath The originally defined path. Containing dynamic parameters as `/:param`
  * @param pathWithValues The actual path used when navigating
  * @returns boolean
- *
  */
 function isMatching(sourcePath: string, pathWithValues: string): boolean {
-  // In case they are the exact same strings
-  if (sourcePath === pathWithValues)
-    return true
+  const sourceSplit = splitPath(sourcePath)
+  const valuesSplit = splitPath(pathWithValues)
 
-  // Ignore query & search
-  sourcePath = new URL(sourcePath, location.origin).pathname
-  pathWithValues = new URL(pathWithValues, location.origin).pathname
+  if (sourceSplit.length !== valuesSplit.length)
+    return false
 
-  const sourceSplit = sourcePath.split('/')
-  const valuesSplit = pathWithValues.split('/')
-
-  // Iterate over every source path segment
-  return sourceSplit.every((item, index) => {
-    // If it's dynamic, we ignore it
-    if (item.startsWith(':'))
-      return true
-
-    // If it is not dynamic, we compare segment names. We don't need to check
-    // lengths, because if they are not matching, this will return false
-    return item === valuesSplit[index]
+  return sourceSplit.every((segment, index) => {
+    if (segment.startsWith(':'))
+      return valuesSplit[index].length > 0
+    return segment === valuesSplit[index]
   })
+}
+
+// @internal
+// Finds the best matching route for a pathname. Static routes take precedence
+// over dynamic ones (`/users/new` wins over `/users/:id`). Between equally
+// specific routes, definition order wins.
+function matchRoute(routes: SerializedRoute[], pathname: string): SerializedRoute | undefined {
+  return routes
+    .filter(r => isMatching(r.path, pathname))
+    .sort((a, b) => countDynamicSegments(a.path) - countDynamicSegments(b.path))[0]
 }
 
 interface ResolvedPathOptions {
   resolvedPath: string
   sourcePath: string
-  params: object
+  params: Record<string, string>
   query: Record<string, string>
   hash: string
 }
 
 // @internal
-// Takes a path, check if it is matching with any of the default paths
-// Extracts values based on the
+// Takes a path, checks if it is matching with any of the defined routes and
+// extracts parameters, query and hash from it.
 function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOptions {
-  // 0.
   const url = new URL(_path, location.origin)
-  const hash = url.hash
+  const hash = url.hash.replace(/^#/, '')
   const query = Object.fromEntries(url.searchParams)
-  const path = url.pathname
+  const path = normalizePath(url.pathname)
 
   // 1. Match current path against an existing route
-  const source = routes.find(r => isMatching(r.path, path))
+  const source = matchRoute(routes, path)
   if (!source)
     throw new Error(`No matching route found for the path "${path}"`)
 
-  // Split them by a path segment
+  // 2. Extract parameters into an object
+  // /main/users/:id means we want an object with { id: <value> } which is extracted from /main/users/10
   const sourceSplit = source.path.split('/')
   const pathSplit = path.split('/')
   const params: Record<string, string> = {}
 
-  // 2. Extract parameters into an object
-  // /main/users/:id means we want an objet with { id: <value> } which is extracted from /main/users/10
   for (let index = 0; index < sourceSplit.length; index++) {
     const sourceSegment = sourceSplit[index]
-    if (!sourceSegment || !sourceSegment.startsWith(':'))
+    if (!sourceSegment.startsWith(':'))
       continue
 
-    const key = sourceSegment.substring(1)
-    const value = pathSplit[index]
-    params[key] = value
+    params[sourceSegment.substring(1)] = decodeSegment(pathSplit[index])
   }
 
   return {
@@ -282,36 +379,13 @@ function resolvePath(_path: string, routes: SerializedRoute[]): ResolvedPathOpti
   }
 }
 
-/**
- *
- * Registers any <a link> elements within the rendered route. Clicking these
- * links will ignore the default behaviour and instead call `push` on the router
- * instance.
- *
- * @internal
- */
-function registerLinks() {
-  const root = getRouterRoot()
-  const links = root.querySelectorAll('a[link]')
-
-  for (const link of links) {
-    const href = link.getAttributeNode('href')?.value
-    if (!href)
-      continue
-
-    const handler = (href: string) => (event: Event) => {
-      event.preventDefault()
-
-      // Only navigate if link is actually matching
-      const isMatch = routes.some(r => isMatching(r.path, href))
-      if (isMatch)
-        navigate(href)
-    }
-
-    // When links are garbage collected, event listeners are automatically
-    // removed, so this does not need a stopper function.
-    link.addEventListener('click', handler(href))
-    registeredLinks.push(() => link.removeEventListener('click', handler(href)))
+// @internal
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  }
+  catch {
+    return segment
   }
 }
 
@@ -328,10 +402,11 @@ interface NavigateOptions {
  *
  * @param path Path to navigate to
  * @param options {NavigateOptions} Navigation options
- * @returns Promise, which resolves when route has been successfully loaded
+ * @returns Promise, which resolves with the route once it has been rendered,
+ * with `null` when the navigation was cancelled or superseded by a newer one,
+ * and rejects when the navigation failed.
  */
 async function navigate(path: string, options: NavigateOptions = {}): Promise<ResolvedRoute | null> {
-  // Options provided parameters will overwrite URL's
   const {
     replace = false,
     hash: optionsHash,
@@ -340,51 +415,65 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
     isPopState = false,
   } = options
 
-  // eslint-disable-next-line no-async-promise-executor
-  const navigationHandler = new Promise<ResolvedRoute | null>(async (resolve, reject) => {
-    // Resolve path
-    let {
-      resolvedPath,
-      sourcePath,
-      params,
-      hash,
-      query,
-    } = resolvePath(path, routes)
+  const id = ++navigationId
+  const isLatest = () => id === navigationId
 
-    if (optionsHash)
-      hash = String(optionsHash)
+  let route: SerializedRoute | undefined
+  let hash = ''
+  let query: Record<string, string> = {}
+
+  try {
+    if (!running)
+      throw new Error('Router is not running. Call `defineRouter(...).run(selector)` first.')
+
+    const resolved = resolvePath(path, routes)
+    const { resolvedPath, sourcePath, params } = resolved
+    hash = resolved.hash
+    query = resolved.query
+
+    // Options provided parameters will overwrite URL's
+    if (optionsHash !== undefined)
+      hash = optionsHash === false ? '' : String(optionsHash).replace(/^#/, '')
     if (optionsQuery) {
       for (const key of Object.keys(optionsQuery))
         query[key] = String(optionsQuery[key])
     }
 
-    const route = findRoute({ path: sourcePath })
+    route = findRoute({ path: sourcePath })
     if (!route)
-      return reject(new Error('Invalid path. Could not match route.'))
+      throw new Error('Invalid path. Could not match route.')
 
     let renderedHtml = parseToHtml(route.html)
 
-    // onNavigation () callback run
-    // If callback returns false, the navigation is cancelled
-    const result = await runOnNavigationCallbacks({ ...route, path, renderedHtml, hash, query, props })
-    if (result === false)
-      resolve(null)
+    // onNavigation() callbacks run. If any callback returns false, the
+    // navigation is cancelled.
+    const proceed = await runOnNavigationCallbacks({ ...route, renderedHtml, hash, query, props })
+    if (proceed === false || !isLatest())
+      return null
 
     // Check if loader has data
-    let data
+    let data: any = null
     if (route.loader) {
-      data = await route.loader(params)
-        .then(res => res)
-        .catch((e) => {
-          if (!route.fallback)
-            return reject(new Error(e))
+      try {
+        data = await route.loader(params)
+      }
+      catch (error) {
+        if (!route.fallback)
+          throw error
+        renderedHtml = parseToHtml(route.fallback)
+      }
 
-          renderedHtml = parseToHtml(route.fallback)
-          return null
-        })
+      if (!isLatest())
+        return null
     }
 
-    // set currentRoute variable
+    const searchParams = new URLSearchParams(query).toString()
+    const finalPath = resolvedPath + (searchParams ? `?${searchParams}` : '') + (hash ? `#${hash}` : '')
+
+    // Rendering and history updates happen together, after the last await, so
+    // a superseded navigation can never get this far.
+    const root = getRouterRoot()
+
     currentRoute = Object.freeze({
       ...route,
       path: sourcePath,
@@ -397,102 +486,83 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
       props,
     })
 
-    const searchParams = new URLSearchParams(query)
-    const queryAppend = searchParams.size > 0 ? `?${searchParams.toString()}` : ''
-    // #2 When route is loaded with a hash, a new hash is prepended on every reload
-    const finalPath = resolvedPath + queryAppend + (hash ? `${hash.startsWith('#') ? '' : '#'}${hash}` : '')
-
     if (!isPopState) {
-      // Update the URL. Since props are not path of hte url state, pass them into the state here
-      if (replace)
-        history.replaceState({ path: finalPath, props }, '', finalPath)
+      // Update the URL. Since props are not part of the url, pass them into the
+      // state here. Navigating to the exact same URL replaces the entry, so
+      // repeated clicks do not pile up history entries.
+      const state: HistoryState = { path: finalPath, props }
+      if (replace || finalPath === currentLocation())
+        history.replaceState(state, '', finalPath)
       else
-        history.pushState({ path: finalPath, props }, '', finalPath)
+        history.pushState(state, '', finalPath)
     }
 
-    // Append route to the root
-    const root = getRouterRoot()
-    root.replaceChildren(currentRoute.renderedHtml)
-    registerLinks()
+    root.replaceChildren(renderedHtml)
 
     // Set document title if it has it
     if (route.title)
       document.title = route.title
 
+    // History API does not scroll to the hash target, so do it manually
+    if (hash) {
+      const anchor = document.getElementById(hash)
+      if (anchor && typeof anchor.scrollIntoView === 'function')
+        anchor.scrollIntoView()
+    }
+
     runOnRouteResolveCallbacks(currentRoute)
-    resolve(currentRoute)
-  })
-
-  // If navigation throws for some reason, run onRouteError callback
-  // NOTE: this will not be triggered when navigation into a route was cancelled
-  navigationHandler.catch((error) => {
-    const route = findRoute({ path })
-    if (route) {
-      const { sourcePath, hash, query } = resolvePath(path, routes)
-      runOnRouteErrorCallbacks({
-        ...route,
-        path: sourcePath,
-        renderedHtml: null,
-        hash,
-        query,
-        props,
-      }, error)
-    }
-    else {
-      runOnRouteErrorCallbacks(null, error)
-    }
-  })
-
-  return navigationHandler
+    return currentRoute
+  }
+  catch (error) {
+    // NOTE: this will not be triggered when navigation into a route was cancelled
+    runOnRouteErrorCallbacks(route ? { ...route, hash, query, props } : null, error)
+    throw error
+  }
 }
 
 // On navigation (before resolve) callback
 type Stopper = () => void
-type OnNavigationCb<T = SerializedRoute> = (route: T) => void | boolean
-type OnNavigationCbFn = (route: SerializedRoute) => void | boolean
+type OnNavigationCb<T = SerializedRoute> = (route: T) => void | boolean | Promise<void | boolean>
+type OnNavigationCbFn = OnNavigationCb
 
 const onPathNavigationCbs: Record<string, Set<OnNavigationCb>> = {}
 const onNavigationCbs = new Set<OnNavigationCb>()
 
-// Runs whenever a route or a aspecific path has been navigated to. Returns a
+// Runs whenever a route or a specific path has been navigated to. Returns a
 // function, which will remove the callback from being ran.
 function onNavigation(path: OnNavigationCbFn): Stopper
 function onNavigation(path: string, cb: OnNavigationCbFn): Stopper
-function onNavigation(path: string | OnNavigationCbFn, cb?: OnNavigationCbFn) {
+function onNavigation(path: string | OnNavigationCbFn, cb?: OnNavigationCbFn): Stopper {
   if (typeof path === 'string') {
     if (!cb)
-      return
+      return () => {}
 
-    if (!onPathNavigationCbs[path])
-      onPathNavigationCbs[path] = new Set()
-    onPathNavigationCbs[path].add(cb)
-  }
-  else if (path) {
-    onNavigationCbs.add(path)
+    const key = normalizePath(path)
+    if (!onPathNavigationCbs[key])
+      onPathNavigationCbs[key] = new Set()
+    onPathNavigationCbs[key].add(cb)
+    return () => onPathNavigationCbs[key]?.delete(cb)
   }
 
-  return () => {
-    if (typeof path === 'string') {
-      if (cb)
-        onPathNavigationCbs[path].delete(cb)
-    }
-    else {
-      onNavigationCbs.delete(path)
-    }
-  }
+  onNavigationCbs.add(path)
+  return () => onNavigationCbs.delete(path)
 }
 
 // @internal
-// Executes all the callbacks for given route
-function runOnNavigationCallbacks(route: SerializedRoute): boolean | void | Promise<boolean | void> {
-  for (const cb of onNavigationCbs)
-    cb(route)
+// Executes all the callbacks for given route. Callbacks may be async and are
+// awaited in order. Returns false as soon as one of them returns false.
+async function runOnNavigationCallbacks(route: SerializedRoute): Promise<boolean> {
+  const callbacks = [
+    ...onNavigationCbs,
+    ...(onPathNavigationCbs[route.path] ?? []),
+  ]
 
-  const routeUpdates = onPathNavigationCbs[route.path]
-  if (routeUpdates) {
-    for (const cb of routeUpdates)
-      cb(route)
+  for (const cb of callbacks) {
+    if (await cb(route) === false)
+      return false
   }
+
+  return true
 }
 
 /**
@@ -505,7 +575,7 @@ function runOnNavigationCallbacks(route: SerializedRoute): boolean | void | Prom
 type OnResolveRouteCb = (route: ResolvedRoute) => void
 
 // On route resolve, ran after route has been successfully navigated to
-const onPathRouteResolveCbs: Record<string, Set<OnNavigationCb<ResolvedRoute>>> = {}
+const onPathRouteResolveCbs: Record<string, Set<OnResolveRouteCb>> = {}
 const onRouteResolveCbs: Set<OnResolveRouteCb> = new Set()
 
 function onRouteResolve(path: OnResolveRouteCb): Stopper
@@ -513,39 +583,31 @@ function onRouteResolve(path: string, cb: OnResolveRouteCb): Stopper
 function onRouteResolve(path: string | OnResolveRouteCb, cb?: OnResolveRouteCb): Stopper {
   // With path
   if (typeof path === 'string') {
-    if (cb) {
-      if (!onPathRouteResolveCbs[path])
-        onPathRouteResolveCbs[path] = new Set()
-      onPathRouteResolveCbs[path].add(cb)
-    }
-  }
-  // Without path
-  else {
-    onRouteResolveCbs.add(path)
+    if (!cb)
+      return () => {}
+
+    const key = normalizePath(path)
+    if (!onPathRouteResolveCbs[key])
+      onPathRouteResolveCbs[key] = new Set()
+    onPathRouteResolveCbs[key].add(cb)
+    return () => onPathRouteResolveCbs[key]?.delete(cb)
   }
 
-  return () => {
-    if (typeof path === 'string') {
-      if (cb)
-        onPathRouteResolveCbs[path as string].delete(cb)
-    }
-    else {
-      onRouteResolveCbs.delete(path)
-    }
-  }
+  // Without path
+  onRouteResolveCbs.add(path)
+  return () => onRouteResolveCbs.delete(path)
 }
 
 // @internal
 // Executes all the callbacks for given route
 function runOnRouteResolveCallbacks(route: ResolvedRoute): void {
-  for (const cb of onRouteResolveCbs)
-    cb(route)
+  const callbacks = [
+    ...onRouteResolveCbs,
+    ...(onPathRouteResolveCbs[route.path] ?? []),
+  ]
 
-  const routeUpdates = onPathRouteResolveCbs[route.path]
-  if (routeUpdates) {
-    for (const cb of routeUpdates)
-      cb(route)
-  }
+  for (const cb of callbacks)
+    cb(route)
 }
 
 // On navigation error
@@ -559,40 +621,46 @@ function onRouteError(path: string, cb: NavigationErrorCb): Stopper
 function onRouteError(path: string | NavigationErrorCb, cb?: NavigationErrorCb): Stopper {
   // With path
   if (typeof path === 'string') {
-    if (cb) {
-      if (!onRoutePathErrorCbs[path])
-        onRoutePathErrorCbs[path] = new Set()
-      onRoutePathErrorCbs[path].add(cb)
-    }
-  }
-  // Without path
-  else {
-    onRouteErrorcbs.add(path)
+    if (!cb)
+      return () => {}
+
+    const key = normalizePath(path)
+    if (!onRoutePathErrorCbs[key])
+      onRoutePathErrorCbs[key] = new Set()
+    onRoutePathErrorCbs[key].add(cb)
+    return () => onRoutePathErrorCbs[key]?.delete(cb)
   }
 
-  return () => {
-    if (typeof path === 'string') {
-      if (cb)
-        onRoutePathErrorCbs[path as string].delete(cb)
-    }
-    else {
-      onRouteErrorcbs.delete(path)
-    }
-  }
+  // Without path
+  onRouteErrorcbs.add(path)
+  return () => onRouteErrorcbs.delete(path)
 }
 
 // @internal
 // Executes all the callbacks for given route
 function runOnRouteErrorCallbacks(route: SerializedRoute | null, error: any): void {
-  for (const cb of onRouteErrorcbs)
-    cb(route, error)
+  const callbacks = [
+    ...onRouteErrorcbs,
+    ...(route ? onRoutePathErrorCbs[route.path] ?? [] : []),
+  ]
 
-  if (route) {
-    const routeUpdates = onRoutePathErrorCbs[route.path]
-    if (routeUpdates) {
-      for (const cb of routeUpdates)
-        cb(route, error)
-    }
+  for (const cb of callbacks)
+    cb(route, error)
+}
+
+// @internal
+// Stops the router and clears every piece of state, including route
+// definitions and callbacks. Intended for tests.
+function resetRouter() {
+  stop()
+  __baseRouter = {}
+  routes = []
+  onNavigationCbs.clear()
+  onRouteResolveCbs.clear()
+  onRouteErrorcbs.clear()
+  for (const store of [onPathNavigationCbs, onPathRouteResolveCbs, onRoutePathErrorCbs]) {
+    for (const key of Object.keys(store))
+      delete store[key]
   }
 }
 
@@ -608,10 +676,13 @@ export {
   getRoute,
   getRouterRoot,
   onRouteError,
+  findRoute,
 
   // Internals / methods not really intended for public use
   resolvePath,
   isMatching,
+  matchRoute,
+  resetRouter,
 
   // Types
   type SerializedRoute,
