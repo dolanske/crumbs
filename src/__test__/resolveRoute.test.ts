@@ -7,9 +7,11 @@ function makeRoutes(paths: string[]): SerializedRoute[] {
     html: '<span>test</span>',
     path,
     renderedHtml: null,
+    module: null,
     hash: '',
     query: {},
     props: {},
+
   }))
 }
 

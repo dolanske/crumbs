@@ -1,7 +1,7 @@
 {
   "name": "@dolanske/crumbs",
   "type": "module",
-  "version": "2.0.0",
+  "version": "3.0.0-beta.1",
   "private": false,
   "description": "SPA router for framework-less web applications using HTML files.",
   "author": "dolanske",
@@ -18,16 +18,20 @@
   ],
   "exports": {
     ".": {
-      "import": "./dist/crumbs.js"
-    }
+      "types": "./dist/router.d.ts",
+      "import": "./dist/router.js"
+    },
+    "./vite": {
+      "types": "./dist/vite-plugin.d.ts",
+      "import": "./dist/vite-plugin.js"
+    },
+    "./client": "./client.d.ts"
   },
-  "main": "./dist/crumbs.js",
-  "module": "./dist/crumbs.js",
-  "types": "./dist/crumbs.d.ts",
-  "typings": "./dist/crumbs.d.ts",
-  "files": [
-    "dist"
-  ],
+  "main": "./dist/router.js",
+  "module": "./dist/router.js",
+  "types": "./dist/router.d.ts",
+  "files": ["client.d.ts", "dist"],
+  "engines": { "node": ">=18" },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -35,6 +39,12 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": { "optional": true }
   },
   "devDependencies": {
     "@antfu/eslint-config": "^2.8.3",

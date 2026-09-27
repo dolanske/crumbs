@@ -14,11 +14,8 @@ export declare function defineRouter(definitions: Router): {
 
 /**
  * Find a route based on some of its properties.
- *
- * @param option An object with a single property
- * @returns SerializedRoute | undefined
  */
-export declare function findRoute(option: FindRouteOptions): SerializedRoute | undefined;
+export declare function findRoute(routes: SerializedRoute[], option: FindRouteOptions): SerializedRoute | undefined;
 
 declare type FindRouteOptions = Record<'path', string> | Record<'title', string> | Record<'startsWith', string> | Record<'html', string> | Record<'renderedHtml', Element>;
 
@@ -37,9 +34,6 @@ export declare function getRouterRoot(): Element;
  * Both paths must have the same amount of segments and dynamic segments must
  * be filled with a non-empty value.
  *
- * @param sourcePath The originally defined path. Containing dynamic parameters as `/:param`
- * @param pathWithValues The actual path used when navigating
- * @returns boolean
  */
 export declare function isMatching(sourcePath: string, pathWithValues: string): boolean;
 
@@ -129,6 +123,7 @@ export declare type Router = Record<string, Route | string>;
 export declare interface SerializedRoute extends Route {
     path: string;
     renderedHtml: RenderedHtml | null;
+    module: Promise<any> | null;
     hash: string;
     query: Record<string, string>;
     props: Record<string, any>;

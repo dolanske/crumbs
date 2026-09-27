@@ -1,8 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineRouter, getRoute, navigate, onNavigation, onRouteError, onRouteResolve, resetRouter } from '../router'
 
+vi.mock('../page-module-url', () => ({
+  createModuleUrl: (code: string) =>
+    `data:text/javascript;base64,${btoa(code)}`,
+}))
+
+const SCRIPT_BASE = `
+<script type="module">
+export function mount(root, ctx) {
+  root.dataset.mounted = 'true'
+  return () => { root.dataset.mounted = 'false' }  
+}
+</script>`
+
+const SCRIPT_CANCEL = `
+<script type="module">
+export function mount(root, ctx) {
+  root.dataset.mounted = 'true'
+  return { 
+    beforeLeave() {
+      return false
+    }
+  }  
+}
+</script>`
+
 const routes = {
-  '/home': '<div id="home"><h1>Home</h1><a href="/users/4" link>User</a><a href="https://example.com/home" link id="external">External</a></div>',
+  '/home': `<div id="home"><h1>Home</h1><a href="/users/4" link>User</a><a href="https://example.com/home" link id="external">External</a></div>`,
   '/users/:id': {
     html: '<div id="user">User</div>',
     fallback: '<div id="fallback">Failed</div>',
@@ -18,7 +43,9 @@ const routes = {
       throw new Error('no fallback')
     },
   },
-  '/multi': '<p>one</p><p>two</p>',
+  '/multi': `<p>one</p><p>two</p>${SCRIPT_BASE}`,
+  '/script': `<p>test</p>${SCRIPT_BASE}`,
+  '/trap': `<p>test</p>${SCRIPT_CANCEL}`,
 }
 
 function root() {
@@ -188,8 +215,6 @@ describe('links', () => {
   })
 
   it('ignores external links and modifier clicks', async () => {
-    // happy-dom performs the browser's default link navigation when a click is
-    // not prevented, so the router's own state is asserted instead of the URL.
     const onResolve = vi.fn()
     onRouteResolve(onResolve)
 
@@ -229,5 +254,41 @@ describe('popstate', () => {
 
     await vi.waitFor(() => expect(getRoute()?.path).toBe('/multi'))
     expect(root().querySelectorAll('p')).toHaveLength(2)
+  })
+})
+
+describe('pages and modules', () => {
+  beforeEach(async () => {
+    await defineRouter(routes).run('#app')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('should warn when a page using <script> has multiple root elements', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await navigate('/multi')
+    expect(warnSpy).toHaveBeenCalled()
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Page using a <script> should have only 1 root element'),
+    )
+  })
+
+  it('should mount and unmount', async () => {
+    await navigate('/script')
+    const root = document.querySelector('p')
+    expect(root?.textContent).toBe('test')
+    expect(root?.dataset.mounted).toBe('true')
+    await navigate('/multi')
+    expect(root?.dataset.mounted).toBe('false')
+  })
+
+  it('it should cancel navigation out', async () => {
+    await navigate('/trap')
+    const root = document.querySelector('p')
+    expect(root?.dataset.mounted).toBe('true')
+    await navigate('/script')
+    expect(root?.dataset.mounted).toBe('true')
   })
 })
