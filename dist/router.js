@@ -66,7 +66,7 @@ function nt(t) {
   for (const n of e)
     n(t);
 }
-const y = {}, O = /* @__PURE__ */ new Set();
+const y = {}, C = /* @__PURE__ */ new Set();
 function dt(t, e) {
   if (typeof t == "string") {
     if (!e)
@@ -78,11 +78,11 @@ function dt(t, e) {
       return (r = y[n]) == null ? void 0 : r.delete(e);
     };
   }
-  return O.add(t), () => O.delete(t);
+  return C.add(t), () => C.delete(t);
 }
 function rt(t, e) {
   const n = [
-    ...O,
+    ...C,
     ...t ? y[t.path] ?? [] : []
   ];
   for (const r of n)
@@ -92,7 +92,7 @@ function ot(t) {
   const e = new Blob([t], { type: "text/javascript" });
   return URL.createObjectURL(e);
 }
-function it(t) {
+function st(t) {
   if (t instanceof Element)
     return { html: t, script: null };
   const e = document.createElement("template");
@@ -111,20 +111,23 @@ function X(t) {
   const n = e.content, r = Array.from(n.childNodes).filter((o) => o.nodeType === Node.ELEMENT_NODE ? !0 : o.nodeType === Node.TEXT_NODE && (o.textContent ?? "").trim().length > 0);
   return r.length === 1 && r[0].nodeType === Node.ELEMENT_NODE ? r[0] : n;
 }
-function st(t) {
-  return Array.from(t.children).filter((e) => e.tagName !== "script" && e.tagName !== "style");
+function it(t) {
+  return Array.from(t.children).filter((e) => {
+    const n = e.tagName.toLowerCase();
+    return n !== "script" && n !== "style";
+  });
 }
 function I(t, e) {
   return t.filter((n) => at(n.path, e)).sort((n, r) => Q(n.path) - Q(r.path))[0];
 }
 function at(t, e) {
   const n = V(t), r = V(e);
-  return n.length !== r.length ? !1 : n.every((o, i) => o.startsWith(":") ? r[i].length > 0 : o === r[i]);
+  return n.length !== r.length ? !1 : n.every((o, s) => o.startsWith(":") ? r[s].length > 0 : o === r[s]);
 }
 function lt(t, e) {
   const [n, r] = Object.entries(e)[0];
   return t.find((o) => {
-    var i;
+    var s;
     switch (n) {
       case "path":
         return o.path === h(r);
@@ -134,13 +137,13 @@ function lt(t, e) {
       case "startsWith":
         return o.path.startsWith(r);
       case "renderedHtml":
-        return ((i = o.renderedHtml) == null ? void 0 : i.isEqualNode(r)) ?? !1;
+        return ((s = o.renderedHtml) == null ? void 0 : s.isEqualNode(r)) ?? !1;
       default:
         return !1;
     }
   });
 }
-let W = {}, g = [], C = "", R = null, s = null, b = !1, q = 0;
+let W = {}, g = [], O = "", R = null, i = null, b = !1, q = 0;
 function pt() {
   return R;
 }
@@ -164,7 +167,7 @@ function mt(t) {
      *
      * @param selector DOM selector
      */
-    run: (e) => (b && k(), C = e, J(), b = !0, window.addEventListener("popstate", F), document.addEventListener("click", G), T(ct(g), { replace: !0 }).catch(() => null)),
+    run: (e) => (b && k(), O = e, J(), b = !0, window.addEventListener("popstate", F), document.addEventListener("click", G), T(ct(g), { replace: !0 }).catch(() => null)),
     /**
      * Stops the router. Navigation will no longer work.
      */
@@ -173,7 +176,7 @@ function mt(t) {
 }
 function k() {
   var t;
-  b = !1, C = "", R = null, q++, (t = s == null ? void 0 : s.unmount) == null || t.call(s), s = null, window.removeEventListener("popstate", F), document.removeEventListener("click", G);
+  b = !1, O = "", R = null, q++, (t = i == null ? void 0 : i.unmount) == null || t.call(i), i = null, window.removeEventListener("popstate", F), document.removeEventListener("click", G);
 }
 function F(t) {
   const e = t.state, n = (e == null ? void 0 : e.path) ?? D();
@@ -193,8 +196,8 @@ function G(t) {
   const o = n.getAttribute("target");
   if (o && o !== "_self")
     return;
-  const i = new URL(r, location.href);
-  i.origin === location.origin && I(g, i.pathname) && (t.preventDefault(), T(i.pathname + i.search + i.hash).catch(() => {
+  const s = new URL(r, location.href);
+  s.origin === location.origin && I(g, s.pathname) && (t.preventDefault(), T(s.pathname + s.search + s.hash).catch(() => {
   }));
 }
 function ct(t) {
@@ -209,9 +212,9 @@ function ct(t) {
   throw new Error("No default route found. Please define one by settings its path to `/` or adding the `default` property to the route definitions. Note, it is not possible to set dynamic routes as default routes.");
 }
 function J() {
-  if (!C)
+  if (!O)
     throw new Error("No root selector found. Did you start the router?");
-  const t = document.querySelector(C);
+  const t = document.querySelector(O);
   if (!t)
     throw new Error("Invalid root node selector. Please select a valid HTML element.");
   return t;
@@ -220,16 +223,16 @@ function yt() {
   return W;
 }
 function ut(t, e) {
-  const n = new URL(t, location.origin), r = n.hash.replace(/^#/, ""), o = Object.fromEntries(n.searchParams), i = h(n.pathname), f = I(e, i);
+  const n = new URL(t, location.origin), r = n.hash.replace(/^#/, ""), o = Object.fromEntries(n.searchParams), s = h(n.pathname), f = I(e, s);
   if (!f)
-    throw new Error(`No matching route found for the path "${i}"`);
-  const E = f.path.split("/"), w = i.split("/"), a = {};
+    throw new Error(`No matching route found for the path "${s}"`);
+  const E = f.path.split("/"), w = s.split("/"), a = {};
   for (let l = 0; l < E.length; l++) {
     const u = E[l];
     u.startsWith(":") && (a[u.substring(1)] = tt(w[l]));
   }
   return {
-    resolvedPath: i,
+    resolvedPath: s,
     sourcePath: f.path,
     params: a,
     hash: r,
@@ -242,7 +245,7 @@ async function T(t, e = {}) {
     replace: n = !1,
     hash: r,
     query: o,
-    props: i = {},
+    props: s = {},
     isPopState: f = !1
   } = e, E = ++q, w = () => E === q;
   let a, l = "", u = {};
@@ -255,9 +258,9 @@ async function T(t, e = {}) {
         u[c] = String(o[c]);
     if (a = lt(g, { path: _ }), !a)
       throw new Error("Invalid path. Could not match route.");
-    const { html: Y, script: A } = it(a.html);
-    let v = X(Y), K = (s == null ? void 0 : s.beforeLeave) && await s.beforeLeave();
-    if (K = await et({ ...a, renderedHtml: v, hash: l, query: u, props: i }), K === !1 || !w())
+    const { html: Y, script: A } = st(a.html);
+    let v = X(Y), K = (i == null ? void 0 : i.beforeLeave) && await i.beforeLeave();
+    if (K = await et({ ...a, renderedHtml: v, hash: l, query: u, props: s }), K === !1 || !w())
       return null;
     let j = null;
     if (a.loader) {
@@ -281,15 +284,15 @@ async function T(t, e = {}) {
       data: j,
       hash: l,
       query: u,
-      props: i
+      props: s
     }), !f) {
       const c = {
         path: S,
-        props: i
+        props: s
       };
       n || S === D() ? history.replaceState(c, "", S) : history.pushState(c, "", S);
     }
-    if ((x = s == null ? void 0 : s.unmount) == null || x.call(s), s = null, $.replaceChildren(v), A) {
+    if ((x = i == null ? void 0 : i.unmount) == null || x.call(i), i = null, $.replaceChildren(v), A) {
       const c = ot(A);
       try {
         const Z = await import(
@@ -298,17 +301,17 @@ async function T(t, e = {}) {
         );
         if (!w())
           return null;
-        const B = st($);
+        const B = it($);
         B.length > 1 && console.warn("Page using a <script> should have only 1 root element. Only the first element will be passed as the root when calling mount()");
         const U = await Z.mount(B[0], {
           path: H,
           data: j,
-          props: i,
+          props: s,
           params: P,
           query: u,
           navigate: T
         });
-        s = typeof U == "function" ? { unmount: U } : U ?? null;
+        i = typeof U == "function" ? { unmount: U } : U ?? null;
       } finally {
         URL.revokeObjectURL(c);
       }
@@ -319,11 +322,11 @@ async function T(t, e = {}) {
     }
     return nt(R), R;
   } catch (d) {
-    throw rt(a ? { ...a, hash: l, query: u, props: i } : null, d), d;
+    throw rt(a ? { ...a, hash: l, query: u, props: s } : null, d), d;
   }
 }
 function gt() {
-  k(), W = {}, g = [], L.clear(), N.clear(), O.clear();
+  k(), W = {}, g = [], L.clear(), N.clear(), C.clear();
   for (const t of [p, m, y])
     for (const e of Object.keys(t))
       delete t[e];

@@ -7,9 +7,12 @@ declare module '*.page.html' {
   const content: string
   export default content
 }
+//
 
 TODO: document script and style - it only for adding page specific content. Cannot import any functions etc
 TODO: more module tests
+TODO: implement update(newRoute)
+TODO: add `provide` object on route context - when router is initialized, these methods will be stored and each .page.html can access them on context - acts as a simple way of adding imports to the .page.html
 ```
 
 SPA router for framework-less web applications using HTML files. This library assumes you're using it in an environment, which can import HTML files as strings.

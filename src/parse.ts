@@ -44,5 +44,8 @@ export function parseToHtml(template: string | Element): RenderedHtml {
 export function getPageRootElements(el: RenderedHtml): Element[] {
   return Array
     .from(el.children)
-    .filter(el => el.tagName !== 'script' && el.tagName !== 'style')
+    .filter((el) => {
+      const name = el.tagName.toLowerCase()
+      return name !== 'script' && name !== 'style'
+    })
 }

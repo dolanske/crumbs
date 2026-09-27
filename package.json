@@ -1,7 +1,7 @@
 {
   "name": "@dolanske/crumbs",
   "type": "module",
-  "version": "3.0.0-beta.1",
+  "version": "3.0.0-beta.2",
   "private": false,
   "description": "SPA router for framework-less web applications using HTML files.",
   "author": "dolanske",
@@ -41,7 +41,7 @@
     "test": "vitest"
   },
   "peerDependencies": {
-    "vite": "^5.0.0 || ^6.0.0"
+    "vite": ">=5.0.0"
   },
   "peerDependenciesMeta": {
     "vite": { "optional": true }
