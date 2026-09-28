@@ -7,12 +7,12 @@ npm i @dolanske/crumbs
 ```
 
 If you wish to define pages using the `*.page.html` syntax, you need to add a type reference to your global `.d.ts` file and use the crumbs vite plugin
-```
+```ts
 // env.d.ts
 /// <reference types="crumbs/client" />
 
 // vite.config.ts
-import crumbs from "crumbs/vite"
+import crumbs from 'crumbs/vite'
 export default defineConfig({
   plugins: [crumbs()]
 })
@@ -21,9 +21,11 @@ export default defineConfig({
 ## Usage
 
 ```ts
+// Without the above, you can still import pages like this
 import main from './routes/main.html?raw'
-// You can also use the crumbs() vite plugin and define pages with the *.page.html syntax
+// With the setup, you can import them like this
 import user from './routes/user.page.html'
+
 import errorFallback from './routes/errorFallback.html?raw'
 import { defineRouter } from '@dolanske/crumbs'
 
