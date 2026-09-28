@@ -70,7 +70,7 @@ One big caveat is that the script cannot import package or local imports, becaus
 
     return {
       // Runs before page is destroyed
-      cleanup() {},
+      unmount() {},
       // Runs before navigating out, returning false cancels navigation
       beforeLeave() {}
     }
