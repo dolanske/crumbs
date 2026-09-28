@@ -1,5 +1,5 @@
 import { countDynamicSegments, normalizePath, splitPath } from './path'
-import type { FindRouteOptions, SerializedRoute } from './types'
+import type { FindRouteOptions, SerializedRoute } from './types/types'
 
 // Finds the best matching route for a pathname. Static routes take precedence
 // over dynamic ones (`/users/new` wins over `/users/:id`). Between equally

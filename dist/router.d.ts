@@ -1,4 +1,4 @@
-export declare function defineRouter(definitions: Router): {
+export declare function defineRouter(definitions: Router, provide?: Provide): {
     /**
      * Start the router. Resolves once the initial route has been rendered (or
      * failed to render, in which case `onRouteError` has been called).
@@ -83,6 +83,31 @@ export declare function onRouteError(path: string, cb: NavigationErrorCb): Stopp
 export declare function onRouteResolve(path: OnResolveRouteCb): Stopper;
 
 export declare function onRouteResolve(path: string, cb: OnResolveRouteCb): Stopper;
+
+declare interface PageContext {
+    path: string;
+    data: any;
+    props: Record<string, any>;
+    params: Record<string, string>;
+    query: Record<string, string>;
+    navigate: (path: string, options?: NavigateOptions) => Promise<ResolvedRoute | null>;
+    provide: Provide;
+}
+
+declare interface PageModule {
+    /**
+     * Runs when page is unmounted
+     */
+    unmount?: () => void;
+    /**
+     * Runs before navigating out. Can cancel navigation if `false` is returned
+     */
+    beforeLeave?: () => boolean | Promise<boolean>;
+}
+
+export declare type PageMount = (root: HTMLElement, context: PageContext) => PageModule;
+
+declare type Provide = Record<string, Function>;
 
 declare type RenderedHtml = Element | DocumentFragment;
 

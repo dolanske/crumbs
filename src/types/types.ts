@@ -52,32 +52,6 @@ export interface NavigateOptions {
   isPopState?: boolean
 }
 
-// Root references the top level HTML element of the page
-export type PageMount = (root: HTMLElement, context: {
-  path: string
-  data: any
-  props: Record<string, any>
-  params: Record<string, string>
-  query: Record<string, string>
-  navigate: (path: string, options?: NavigateOptions) => Promise<ResolvedRoute | null>
-}) => PageModule
-
-// Optional callbacks returned by the page's `mount` method
-export interface PageModule {
-  /**
-   * Runs when page is unmounted
-   */
-  unmount?: () => void
-  /**
-   * Runs before navigating out. Can cancel navigation if `false` is returned
-   */
-  beforeLeave?: () => boolean | Promise<boolean>
-  /**
-   * Runs whenever a dynamic route updates
-   */
-  update?: (route: ResolvedRoute) => void
-}
-
 export type Router = Record<string, Route | string>
 
 export type FindRouteOptions = Record<'path', string> | Record<'title', string> | Record<'startsWith', string> | Record<'html', string> | Record<'renderedHtml', Element>

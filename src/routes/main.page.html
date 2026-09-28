@@ -10,7 +10,10 @@
 </style>
 
 <script type="module">
+  // @ts-check
+
   export function mount(root, ctx) {
+    ctx.provide.test()
     // return {
     //   cleanup() {},
     //   update(prev, next) {},

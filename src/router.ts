@@ -3,10 +3,12 @@ import { createModuleUrl } from './page-module-url'
 import { extractScript, getPageRootElements, parseToHtml } from './parse'
 import { currentLocation, decodeSegment, isDynamic, normalizePath } from './path'
 import { findRoute, isMatching, matchRoute } from './route'
-import type { ShallowReadonly } from './type-helpers'
-import type { HistoryState, NavigateOptions, PageModule, ResolvedPathOptions, ResolvedRoute, Route, Router, SerializedRoute } from './types'
+import type { PageModule, PageMount, Provide } from './types/mount'
+import type { ShallowReadonly } from './types/type-helpers'
+import type { HistoryState, NavigateOptions, ResolvedPathOptions, ResolvedRoute, Route, Router, SerializedRoute } from './types/types'
 
 let __baseRouter: Router = {}
+let __globalProvide: Provide = {}
 let routes: SerializedRoute[] = []
 let rootSelector: string = ''
 let currentRoute: null | ResolvedRoute = null
@@ -23,10 +25,13 @@ function getRoute(): Readonly<ResolvedRoute> | null {
 }
 
 // Creates router by serializing all the provided routes
-function defineRouter(definitions: Router) {
+
+function defineRouter(definitions: Router, provide?: Provide) {
   if (running)
     stop()
 
+  if (provide)
+    __globalProvide = Object.freeze(provide)
   __baseRouter = Object.freeze(definitions)
 
   routes = Object.entries(definitions).map(([path, route]) => {
@@ -354,6 +359,7 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
           params,
           query,
           navigate,
+          provide: __globalProvide,
         })
 
         currentPageModule = typeof result === 'function'
@@ -428,4 +434,5 @@ export {
   type Route,
   type Router,
   type NavigateOptions,
+  type PageMount,
 }

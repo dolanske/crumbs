@@ -15,8 +15,4 @@ const routes: Router = {
   },
 }
 
-// onRouteResolve((route) => {
-//   console.log(route)
-// })
-
 defineRouter(routes).run('#app')

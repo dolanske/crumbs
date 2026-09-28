@@ -1,4 +1,4 @@
-import type { RenderedHtml } from './types'
+import type { RenderedHtml } from './types/types'
 
 // Extract the <script> from page file and return it
 export function extractScript(template: string | Element): { html: string | Element, script: string | null } {

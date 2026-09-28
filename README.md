@@ -1,31 +1,29 @@
 # crumbs
 
-```
-TODO: document vite plugin
-TODO: document
-declare module '*.page.html' {
-  const content: string
-  export default content
-}
-//
-
-TODO: document script and style - it only for adding page specific content. Cannot import any functions etc
-TODO: more module tests
-TODO: implement update(newRoute)
-TODO: add `provide` object on route context - when router is initialized, these methods will be stored and each .page.html can access them on context - acts as a simple way of adding imports to the .page.html
-```
-
 SPA router for framework-less web applications using HTML files. This library assumes you're using it in an environment, which can import HTML files as strings.
 
 ```bash
 npm i @dolanske/crumbs
 ```
 
+If you wish to define pages using the `*.page.html` syntax, you need to add a type reference to your global `.d.ts` file and use the crumbs vite plugin
+```
+// env.d.ts
+/// <reference types="crumbs/client" />
+
+// vite.config.ts
+import crumbs from "crumbs/vite"
+export default defineConfig({
+  plugins: [crumbs()]
+})
+```
+
 ## Usage
 
 ```ts
 import main from './routes/main.html?raw'
-import user from './routes/user.html?raw'
+// You can also use the crumbs() vite plugin and define pages with the *.page.html syntax
+import user from './routes/user.page.html'
 import errorFallback from './routes/errorFallback.html?raw'
 import { defineRouter } from '@dolanske/crumbs'
 
@@ -37,8 +35,7 @@ const routes = {
     // In case loader throws, you can provide a fallback route to render instead
     fallback: errorFallback,
     async loader({ id }: { id: string }) {
-      return fetch(`https://swapi.dev/api/people/${id}`)
-        .then(r => r.json())
+      return fetch(`https://swapi.dev/api/people/${id}`).then(r => r.json())
     },
   },
 }
@@ -46,9 +43,68 @@ const routes = {
 defineRouter(routes).run('#app')
 ```
 
+While you can pass a template string or a raw HTML file, Crumbs actually supports a vue-like template syntax including `<script>` tags. The CSS will be scoped to the page and the script JS will run on every page load.
+
+One big caveat is that the script cannot import package or local imports, because it runs in its own context.
+
+```html
+<div id="page">
+  <h1>Hello world</h1>
+</div>
+
+<style>
+  h1 {
+    color: yellow;
+  }
+</style>
+
+<script type="module">
+  /** @ts-check */
+  /** @type {import('@dolanske/crumbs').PageMount} */
+  export function mount(root, ctx) {
+    // You can only write code inside the `mount` function. Code outside will be discarded
+    // root = the top level element of the page, in this case `<div id="page" />
+    // ctx  = information about the route, path, query, props, hash, global provides, etc
+
+    return {
+      // Runs before page is destroyed
+      cleanup() {},
+      // Runs before navigating out, returning false cancels navigation
+      beforeLeave() {}
+    }
+  }
+</script>
+
+```
+
+One way we can work around it is to provide methods to the router.
+
+```ts
+defineRouter(routes, {
+  // Add any imported/package methods here
+  test: () => console.log('Hello from page!')
+})
+```
+
+Now any page will have access to it on the `provide` object.
+
+```html
+<div />
+<script type="module">
+  export function mount(root, ctx) {
+    // Check console for "Hello from page!"
+    ctx.provide.test()
+  }
+</script>
+```
+
 ## Api
 
 ####  `defineRouter`
+
+```ts
+defineRouter(routes: Route[], provide?: Record<string, Function>)
+```
 
 To create a router, call the `defineRouter` method in the root script of your application. This function takes in an object which contains route definitions. It returns an app instance, which contains two methods
 

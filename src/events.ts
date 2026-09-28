@@ -1,5 +1,5 @@
 import { normalizePath } from './path'
-import type { ResolvedRoute, SerializedRoute } from './types'
+import type { ResolvedRoute, SerializedRoute } from './types/types'
 
 // On navigation (before resolve) callback
 type Stopper = () => void
