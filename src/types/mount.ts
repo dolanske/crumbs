@@ -1,7 +1,6 @@
 import type { NavigateOptions, ResolvedRoute } from './types'
 
-// eslint-disable-next-line ts/no-unsafe-function-type
-export type Provide = Record<string, Function>
+export type Provide = Record<string, any>
 
 export interface PageContext {
   path: string

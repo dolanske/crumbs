@@ -1,3 +1,5 @@
+import type { Provide } from './mount'
+
 export interface Route {
   title?: string
   html: string | Element
@@ -50,6 +52,15 @@ export interface NavigateOptions {
   props?: Record<string, any>
   replace?: boolean
   isPopState?: boolean
+}
+
+export interface RouterOptions {
+  // Functions made available to every page through `ctx.provide`
+  provide?: Provide
+
+  // Base path the application is served from, eg. `/my-repo/` when deployed
+  // to GitHub pages. Route paths are defined without it.
+  base?: string
 }
 
 export type Router = Record<string, Route | string>

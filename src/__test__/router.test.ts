@@ -257,6 +257,61 @@ describe('popstate', () => {
   })
 })
 
+describe('base', () => {
+  it('renders the default route under the base', async () => {
+    history.replaceState(null, '', '/repo/')
+    await defineRouter(routes, { base: '/repo/' }).run('#app')
+
+    expect(url()).toBe('/repo/home')
+    expect(getRoute()?.path).toBe('/home')
+    expect(history.state).toStrictEqual({ path: '/home', props: {} })
+  })
+
+  it('strips the base from the current URL', async () => {
+    history.replaceState(null, '', '/repo/users/7?tab=posts')
+    await defineRouter(routes, { base: 'repo' }).run('#app')
+
+    expect(getRoute()?.resolvedPath).toBe('/users/7')
+    expect(url()).toBe('/repo/users/7?tab=posts')
+  })
+
+  it('does not treat paths sharing a prefix with the base as inside it', async () => {
+    history.replaceState(null, '', '/repository/users/7')
+    await defineRouter(routes, { base: '/repo' }).run('#app')
+
+    expect(getRoute()?.path).toBe('/home')
+    expect(url()).toBe('/repo/home')
+  })
+
+  it('prefixes navigation with the base', async () => {
+    await defineRouter(routes, { base: '/repo' }).run('#app')
+    await navigate('/users/42#bio')
+
+    expect(url()).toBe('/repo/users/42#bio')
+    expect(history.state.path).toBe('/users/42#bio')
+  })
+
+  it('handles links with and without the base', async () => {
+    await defineRouter(routes, { base: '/repo' }).run('#app')
+
+    const link = root().querySelector<HTMLAnchorElement>('a[href="/users/4"]')!
+    link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    await vi.waitFor(() => expect(url()).toBe('/repo/users/4'))
+
+    root().innerHTML = '<a href="/repo/home" link>Home</a>'
+    root().querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    await vi.waitFor(() => expect(url()).toBe('/repo/home'))
+  })
+
+  it('strips the base on popstate without state', async () => {
+    await defineRouter(routes, { base: '/repo' }).run('#app')
+    history.pushState(null, '', '/repo/multi')
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
+
+    await vi.waitFor(() => expect(getRoute()?.path).toBe('/multi'))
+  })
+})
+
 describe('pages and modules', () => {
   beforeEach(async () => {
     await defineRouter(routes).run('#app')
@@ -290,5 +345,16 @@ describe('pages and modules', () => {
     expect(root?.dataset.mounted).toBe('true')
     await navigate('/script')
     expect(root?.dataset.mounted).toBe('true')
+  })
+})
+
+describe('provide', () => {
+  it('passes global provides to page modules', async () => {
+    const test = vi.fn()
+    await defineRouter({
+      '/': `<div></div><script type="module">export function mount(root, ctx) { ctx.provide.test() }</script>`,
+    }, { provide: { test } }).run('#app')
+
+    expect(test).toHaveBeenCalledOnce()
   })
 })

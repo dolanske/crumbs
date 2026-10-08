@@ -1,98 +1,115 @@
-function h(t) {
+function p(t) {
   return t.length > 1 && t.endsWith("/") ? t.slice(0, -1) : t;
 }
-function V(t) {
-  return h(new URL(t, location.origin).pathname).split("/");
+function F(t) {
+  return p(new URL(t, location.origin).pathname).split("/");
 }
-function tt(t) {
+function ot(t) {
   return t.split("/").some((e) => e.startsWith(":"));
 }
-function Q(t) {
+function G(t) {
   return t.split("/").filter((e) => e.startsWith(":")).length;
 }
-function et(t) {
+function it(t) {
   try {
     return decodeURIComponent(t);
   } catch {
     return t;
   }
 }
-function D() {
-  return location.pathname + location.search + location.hash;
+let h = "";
+function st(t = "") {
+  const e = t.trim().replace(/^\/+|\/+$/g, "");
+  return e ? `/${e}` : "";
 }
-const p = {}, L = /* @__PURE__ */ new Set();
-function ht(t, e) {
+function Z(t) {
+  h = st(t);
+}
+function gt() {
+  return h;
+}
+function W(t) {
+  return h ? t === h ? "/" : t.startsWith(`${h}/`) ? t.slice(h.length) : null : t;
+}
+function J(t) {
+  return h ? h + t : t;
+}
+function _() {
+  return (W(location.pathname) ?? location.pathname) + location.search + location.hash;
+}
+const y = {}, N = /* @__PURE__ */ new Set();
+function wt(t, e) {
   if (typeof t == "string") {
     if (!e)
       return () => {
       };
-    const n = h(t);
-    return p[n] || (p[n] = /* @__PURE__ */ new Set()), p[n].add(e), () => {
+    const n = p(t);
+    return y[n] || (y[n] = /* @__PURE__ */ new Set()), y[n].add(e), () => {
       var r;
-      return (r = p[n]) == null ? void 0 : r.delete(e);
+      return (r = y[n]) == null ? void 0 : r.delete(e);
     };
   }
-  return L.add(t), () => L.delete(t);
+  return N.add(t), () => N.delete(t);
 }
-async function nt(t) {
+async function at(t) {
   const e = [
-    ...L,
-    ...p[t.path] ?? []
+    ...N,
+    ...y[t.path] ?? []
   ];
   for (const n of e)
     if (await n(t) === !1)
       return !1;
   return !0;
 }
-const m = {}, N = /* @__PURE__ */ new Set();
-function dt(t, e) {
+const g = {}, O = /* @__PURE__ */ new Set();
+function bt(t, e) {
   if (typeof t == "string") {
     if (!e)
       return () => {
       };
-    const n = h(t);
-    return m[n] || (m[n] = /* @__PURE__ */ new Set()), m[n].add(e), () => {
+    const n = p(t);
+    return g[n] || (g[n] = /* @__PURE__ */ new Set()), g[n].add(e), () => {
       var r;
-      return (r = m[n]) == null ? void 0 : r.delete(e);
-    };
-  }
-  return N.add(t), () => N.delete(t);
-}
-function rt(t) {
-  const e = [
-    ...N,
-    ...m[t.path] ?? []
-  ];
-  for (const n of e)
-    n(t);
-}
-const y = {}, O = /* @__PURE__ */ new Set();
-function pt(t, e) {
-  if (typeof t == "string") {
-    if (!e)
-      return () => {
-      };
-    const n = h(t);
-    return y[n] || (y[n] = /* @__PURE__ */ new Set()), y[n].add(e), () => {
-      var r;
-      return (r = y[n]) == null ? void 0 : r.delete(e);
+      return (r = g[n]) == null ? void 0 : r.delete(e);
     };
   }
   return O.add(t), () => O.delete(t);
 }
-function ot(t, e) {
-  const n = [
+function lt(t) {
+  const e = [
     ...O,
-    ...t ? y[t.path] ?? [] : []
+    ...g[t.path] ?? []
+  ];
+  for (const n of e)
+    n(t);
+}
+const w = {}, C = /* @__PURE__ */ new Set();
+function Rt(t, e) {
+  if (typeof t == "string") {
+    if (!e)
+      return () => {
+      };
+    const n = p(t);
+    return w[n] || (w[n] = /* @__PURE__ */ new Set()), w[n].add(e), () => {
+      var r;
+      return (r = w[n]) == null ? void 0 : r.delete(e);
+    };
+  }
+  return C.add(t), () => C.delete(t);
+}
+function ct(t, e) {
+  const n = [
+    ...C,
+    ...t ? w[t.path] ?? [] : []
   ];
   for (const r of n)
     r(t, e);
 }
-function it(t) {
+function ut(t) {
   const e = new Blob([t], { type: "text/javascript" });
   return URL.createObjectURL(e);
 }
-function st(t) {
+function ft(t) {
   if (t instanceof Element)
     return { html: t, script: null };
   const e = document.createElement("template");
@@ -103,7 +120,7 @@ function st(t) {
     script: r
   };
 }
-function X(t) {
+function Y(t) {
   if (t instanceof Element)
     return t;
   const e = document.createElement("template");
@@ -111,26 +128,26 @@ function X(t) {
   const n = e.content, r = Array.from(n.childNodes).filter((o) => o.nodeType === Node.ELEMENT_NODE ? !0 : o.nodeType === Node.TEXT_NODE && (o.textContent ?? "").trim().length > 0);
   return r.length === 1 && r[0].nodeType === Node.ELEMENT_NODE ? r[0] : n;
 }
-function at(t) {
+function ht(t) {
   return Array.from(t.children).filter((e) => {
     const n = e.tagName.toLowerCase();
     return n !== "script" && n !== "style";
   });
 }
-function _(t, e) {
-  return t.filter((n) => lt(n.path, e)).sort((n, r) => Q(n.path) - Q(r.path))[0];
+function B(t, e) {
+  return t.filter((n) => dt(n.path, e)).sort((n, r) => G(n.path) - G(r.path))[0];
 }
-function lt(t, e) {
-  const n = V(t), r = V(e);
+function dt(t, e) {
+  const n = F(t), r = F(e);
   return n.length !== r.length ? !1 : n.every((o, i) => o.startsWith(":") ? r[i].length > 0 : o === r[i]);
 }
-function ct(t, e) {
+function pt(t, e) {
   const [n, r] = Object.entries(e)[0];
   return t.find((o) => {
     var i;
     switch (n) {
       case "path":
-        return o.path === h(r);
+        return o.path === p(r);
       case "html":
       case "title":
         return o[n] === r;
@@ -143,16 +160,16 @@ function ct(t, e) {
     }
   });
 }
-let I = {}, F = {}, g = [], C = "", b = null, s = null, R = !1, q = 0;
-function mt() {
-  return b;
+let I = {}, x = {}, b = [], P = "", v = null, s = null, E = !1, D = 0;
+function vt() {
+  return v;
 }
-function yt(t, e) {
-  return R && k(), e && (F = Object.freeze(e)), I = Object.freeze(t), g = Object.entries(t).map(([n, r]) => {
+function Et(t, e = {}) {
+  return E && L(), x = Object.freeze(e.provide ?? {}), Z(e.base), I = Object.freeze(t), b = Object.entries(t).map(([n, r]) => {
     const o = typeof r == "string" ? { html: r } : r;
     return {
       ...o,
-      path: h(n),
+      path: p(n),
       renderedHtml: null,
       module: null,
       query: {},
@@ -167,27 +184,27 @@ function yt(t, e) {
      *
      * @param selector DOM selector
      */
-    run: (n) => (R && k(), C = n, Y(), R = !0, window.addEventListener("popstate", G), document.addEventListener("click", J), P(ut(g), { replace: !0 }).catch(() => null)),
+    run: (n) => (E && L(), P = n, et(), E = !0, window.addEventListener("popstate", M), document.addEventListener("click", tt), T(mt(b), { replace: !0 }).catch(() => null)),
     /**
      * Stops the router. Navigation will no longer work.
      */
-    stop: k
+    stop: L
   };
 }
-function k() {
+function L() {
   var t;
-  R = !1, C = "", b = null, q++, (t = s == null ? void 0 : s.unmount) == null || t.call(s), s = null, window.removeEventListener("popstate", G), document.removeEventListener("click", J);
+  E = !1, P = "", v = null, D++, (t = s == null ? void 0 : s.unmount) == null || t.call(s), s = null, window.removeEventListener("popstate", M), document.removeEventListener("click", tt);
 }
-function G(t) {
-  const e = t.state, n = (e == null ? void 0 : e.path) ?? D();
-  P(n, { props: (e == null ? void 0 : e.props) ?? {}, isPopState: !0 }).catch(() => {
+function M(t) {
+  const e = t.state, n = (e == null ? void 0 : e.path) ?? _();
+  T(n, { props: (e == null ? void 0 : e.props) ?? {}, isPopState: !0 }).catch(() => {
   });
 }
-function J(t) {
-  var f;
+function tt(t) {
+  var d;
   if (t.defaultPrevented || t.button !== 0 || t.metaKey || t.ctrlKey || t.shiftKey || t.altKey)
     return;
-  const e = t.target, n = (f = e == null ? void 0 : e.closest) == null ? void 0 : f.call(e, "a[link]");
+  const e = t.target, n = (d = e == null ? void 0 : e.closest) == null ? void 0 : d.call(e, "a[link]");
   if (!n)
     return;
   const r = n.getAttribute("href");
@@ -197,39 +214,43 @@ function J(t) {
   if (o && o !== "_self")
     return;
   const i = new URL(r, location.href);
-  i.origin === location.origin && _(g, i.pathname) && (t.preventDefault(), P(i.pathname + i.search + i.hash).catch(() => {
+  if (i.origin !== location.origin)
+    return;
+  const f = W(i.pathname) ?? i.pathname;
+  B(b, f) && (t.preventDefault(), T(f + i.search + i.hash).catch(() => {
   }));
 }
-function ut(t) {
-  if (_(t, location.pathname))
-    return D();
-  const e = t.find((r) => r.default || r.path === "/");
-  if (e)
-    return e.path;
-  const n = t.filter((r) => !tt(r.path)).sort((r, o) => r.path.length - o.path.length)[0];
+function mt(t) {
+  const e = W(location.pathname);
+  if (e !== null && B(t, e))
+    return _();
+  const n = t.find((o) => o.default || o.path === "/");
   if (n)
     return n.path;
+  const r = t.filter((o) => !ot(o.path)).sort((o, i) => o.path.length - i.path.length)[0];
+  if (r)
+    return r.path;
   throw new Error("No default route found. Please define one by settings its path to `/` or adding the `default` property to the route definitions. Note, it is not possible to set dynamic routes as default routes.");
 }
-function Y() {
-  if (!C)
+function et() {
+  if (!P)
     throw new Error("No root selector found. Did you start the router?");
-  const t = document.querySelector(C);
+  const t = document.querySelector(P);
   if (!t)
     throw new Error("Invalid root node selector. Please select a valid HTML element.");
   return t;
 }
-function gt() {
+function St() {
   return I;
 }
-function ft(t, e) {
-  const n = new URL(t, location.origin), r = n.hash.replace(/^#/, ""), o = Object.fromEntries(n.searchParams), i = h(n.pathname), f = _(e, i);
+function yt(t, e) {
+  const n = new URL(t, location.origin), r = n.hash.replace(/^#/, ""), o = Object.fromEntries(n.searchParams), i = p(n.pathname), f = B(e, i);
   if (!f)
     throw new Error(`No matching route found for the path "${i}"`);
-  const v = f.path.split("/"), w = i.split("/"), a = {};
-  for (let l = 0; l < v.length; l++) {
-    const u = v[l];
-    u.startsWith(":") && (a[u.substring(1)] = et(w[l]));
+  const d = f.path.split("/"), R = i.split("/"), a = {};
+  for (let l = 0; l < d.length; l++) {
+    const u = d[l];
+    u.startsWith(":") && (a[u.substring(1)] = it(R[l]));
   }
   return {
     resolvedPath: i,
@@ -239,80 +260,80 @@ function ft(t, e) {
     query: o
   };
 }
-async function P(t, e = {}) {
-  var W;
+async function T(t, e = {}) {
+  var $;
   const {
     replace: n = !1,
     hash: r,
     query: o,
     props: i = {},
     isPopState: f = !1
-  } = e, v = ++q, w = () => v === q;
+  } = e, d = ++D, R = () => d === D;
   let a, l = "", u = {};
   try {
-    if (!R)
+    if (!E)
       throw new Error("Router is not running. Call `defineRouter(...).run(selector)` first.");
-    const d = ft(t, g), { resolvedPath: T, sourcePath: x, params: H } = d;
-    if (l = d.hash, u = d.query, r !== void 0 && (l = r === !1 ? "" : String(r).replace(/^#/, "")), o)
+    const m = yt(t, b), { resolvedPath: H, sourcePath: z, params: j } = m;
+    if (l = m.hash, u = m.query, r !== void 0 && (l = r === !1 ? "" : String(r).replace(/^#/, "")), o)
       for (const c of Object.keys(o))
         u[c] = String(o[c]);
-    if (a = ct(g, { path: x }), !a)
+    if (a = pt(b, { path: z }), !a)
       throw new Error("Invalid path. Could not match route.");
-    const { html: Z, script: z } = st(a.html);
-    let E = X(Z), A = (s == null ? void 0 : s.beforeLeave) && await s.beforeLeave();
-    if (A = await nt({ ...a, renderedHtml: E, hash: l, query: u, props: i }), A === !1 || !w())
+    const { html: nt, script: A } = ft(a.html);
+    let S = Y(nt), K = (s == null ? void 0 : s.beforeLeave) && await s.beforeLeave();
+    if (K = await at({ ...a, renderedHtml: S, hash: l, query: u, props: i }), K === !1 || !R())
       return null;
-    let j = null;
+    let U = null;
     if (a.loader) {
       try {
-        j = await a.loader(H);
+        U = await a.loader(j);
       } catch (c) {
         if (!a.fallback)
           throw c;
-        E = X(a.fallback);
+        S = Y(a.fallback);
       }
-      if (!w())
+      if (!R())
         return null;
     }
-    const K = new URLSearchParams(u).toString(), S = T + (K ? `?${K}` : "") + (l ? `#${l}` : ""), $ = Y();
-    if (b = Object.freeze({
+    const V = new URLSearchParams(u).toString(), k = H + (V ? `?${V}` : "") + (l ? `#${l}` : ""), Q = et();
+    if (v = Object.freeze({
       ...a,
-      path: x,
-      resolvedPath: T,
-      renderedHtml: E,
-      params: H,
-      data: j,
+      path: z,
+      resolvedPath: H,
+      renderedHtml: S,
+      params: j,
+      data: U,
       hash: l,
       query: u,
       props: i
     }), !f) {
       const c = {
-        path: S,
+        path: k,
         props: i
       };
-      n || S === D() ? history.replaceState(c, "", S) : history.pushState(c, "", S);
+      n || k === _() ? history.replaceState(c, "", J(k)) : history.pushState(c, "", J(k));
     }
-    if ((W = s == null ? void 0 : s.unmount) == null || W.call(s), s = null, $.replaceChildren(E), z) {
-      const c = it(z);
+    if (($ = s == null ? void 0 : s.unmount) == null || $.call(s), s = null, Q.replaceChildren(S), A) {
+      const c = ut(A);
       try {
-        const M = await import(
+        const rt = await import(
           /* @vite-ignore */
           c
         );
-        if (!w())
+        if (!R())
           return null;
-        const B = at($);
-        B.length > 1 && console.warn("Page using a <script> should have only 1 root element. Only the first element will be passed as the root when calling mount()");
-        const U = await M.mount(B[0], {
-          path: T,
-          data: j,
+        const X = ht(Q);
+        X.length > 1 && console.warn("Page using a <script> should have only 1 root element. Only the first element will be passed as the root when calling mount()");
+        const q = await rt.mount(X[0], {
+          path: H,
+          data: U,
           props: i,
-          params: H,
+          params: j,
           query: u,
-          navigate: P,
-          provide: F
+          navigate: T,
+          provide: x
         });
-        s = typeof U == "function" ? { unmount: U } : U ?? null;
+        s = typeof q == "function" ? { unmount: q } : q ?? null;
       } finally {
         URL.revokeObjectURL(c);
       }
@@ -321,29 +342,30 @@ async function P(t, e = {}) {
       const c = document.getElementById(l);
       c && typeof c.scrollIntoView == "function" && c.scrollIntoView();
     }
-    return rt(b), b;
-  } catch (d) {
-    throw ot(a ? { ...a, hash: l, query: u, props: i } : null, d), d;
+    return lt(v), v;
+  } catch (m) {
+    throw ct(a ? { ...a, hash: l, query: u, props: i } : null, m), m;
   }
 }
-function wt() {
-  k(), I = {}, g = [], L.clear(), N.clear(), O.clear();
-  for (const t of [p, m, y])
+function kt() {
+  L(), I = {}, x = {}, Z(), b = [], N.clear(), O.clear(), C.clear();
+  for (const t of [y, g, w])
     for (const e of Object.keys(t))
       delete t[e];
 }
 export {
-  yt as defineRouter,
-  ct as findRoute,
-  mt as getRoute,
-  gt as getRouterConfig,
-  Y as getRouterRoot,
-  lt as isMatching,
-  _ as matchRoute,
-  P as navigate,
-  ht as onNavigation,
-  pt as onRouteError,
-  dt as onRouteResolve,
-  wt as resetRouter,
-  ft as resolvePath
+  Et as defineRouter,
+  pt as findRoute,
+  gt as getBase,
+  vt as getRoute,
+  St as getRouterConfig,
+  et as getRouterRoot,
+  dt as isMatching,
+  B as matchRoute,
+  T as navigate,
+  wt as onNavigation,
+  Rt as onRouteError,
+  bt as onRouteResolve,
+  kt as resetRouter,
+  yt as resolvePath
 };

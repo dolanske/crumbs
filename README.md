@@ -79,12 +79,16 @@ One big caveat is that the script cannot import package or local imports, becaus
 
 ```
 
-One way we can work around it is to provide methods to the router.
+One way we can work around it is to provide methods to the router using `provide`
 
 ```ts
 defineRouter(routes, {
-  // Add any imported/package methods here
-  test: () => console.log('Hello from page!')
+  provide: {
+    // Add any imported/package methods here
+    test: () => console.log('Hello from page!'),
+    // Globally available dataset
+    users: ['a', 'b']
+  }
 })
 ```
 
@@ -105,10 +109,21 @@ Now any page will have access to it on the `provide` object.
 ####  `defineRouter`
 
 ```ts
-defineRouter(routes: Route[], provide?: Record<string, Function>)
+defineRouter(routes: Record<string, Route | string>, options?: RouterOptions)
+
+interface RouterOptions {
+  // Any data available to the pages. For instance methods we can't import inside `.page.html` or globally available datasets
+  provide?: Record<string, any>
+  // Base path the app is served from, eg. `/my-repo/`
+  base?: string
+}
 ```
 
-To create a router, call the `defineRouter` method in the root script of your application. This function takes in an object which contains route definitions. It returns an app instance, which contains two methods
+To create a router, call the `defineRouter` method in the root script of your application. This function takes in an object which contains route definitions and an optional options object.
+
+`options.base` sets the base path the app is served from, for example `/my-repo/` when deployed to GitHub pages in a sub folder. Routes, `navigate()` and `getRoute()` keep using paths without the base. The base is only added to the URL in the address bar, and URLs outside of it are never matched. With Vite, you can pass `import.meta.env.BASE_URL`. `getBase()` returns the current base.
+
+`defineRouter` returns an app instance, which contains two methods
 
 - `run(domSelector)` Takes in a selector for a valid DOM element, which the router will be mounted to. Throws if the selector does not match an element. Returns a promise, which resolves once the initial route has been rendered.
 - `stop()` Stops the routing. Calling `navigate()` afterwards rejects.

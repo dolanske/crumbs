@@ -1,5 +1,7 @@
 import fs from 'node:fs/promises'
 
+const PAGE_QUERY = '?crumbs-page'
+
 /**
  * Simple vite plugin which transforms any `.page.html` into vite consumable `.html?raw`.
  * This is purely just a syntax improvement
@@ -9,11 +11,23 @@ export default function crumbs() {
   return {
     name: 'page-html-as-raw',
     enforce: 'pre',
-    async load(id: any) {
-      const [file] = id.split('?')
-      if (!file.endsWith('.page.html'))
+    async resolveId(this: any, source: string, importer: string | undefined, options: any) {
+      // Leave explicit queries (`?raw`, `?url`, Vite's internal proxies...) alone
+      if (source.includes('?') || !source.endsWith('.page.html'))
         return null
 
+      const resolved = await this.resolve(source, importer, { ...options, skipSelf: true })
+      if (!resolved || resolved.external)
+        return null
+
+      return resolved.id + PAGE_QUERY
+    },
+    async load(this: any, id: string) {
+      if (!id.endsWith(PAGE_QUERY))
+        return null
+
+      const file = id.slice(0, -PAGE_QUERY.length)
+      this.addWatchFile(file)
       const content = await fs.readFile(file, 'utf-8')
       return `export default ${JSON.stringify(content)}`
     },

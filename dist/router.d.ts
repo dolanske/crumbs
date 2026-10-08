@@ -1,4 +1,4 @@
-export declare function defineRouter(definitions: Router, provide?: Provide): {
+export declare function defineRouter(definitions: Router, options?: RouterOptions): {
     /**
      * Start the router. Resolves once the initial route has been rendered (or
      * failed to render, in which case `onRouteError` has been called).
@@ -18,6 +18,8 @@ export declare function defineRouter(definitions: Router, provide?: Provide): {
 export declare function findRoute(routes: SerializedRoute[], option: FindRouteOptions): SerializedRoute | undefined;
 
 declare type FindRouteOptions = Record<'path', string> | Record<'title', string> | Record<'startsWith', string> | Record<'html', string> | Record<'renderedHtml', Element>;
+
+export declare function getBase(): string;
 
 export declare function getRoute(): Readonly<ResolvedRoute> | null;
 
@@ -107,7 +109,7 @@ declare interface PageModule {
 
 export declare type PageMount = (root: HTMLElement, context: PageContext) => PageModule;
 
-declare type Provide = Record<string, Function>;
+declare type Provide = Record<string, any>;
 
 declare type RenderedHtml = Element | DocumentFragment;
 
@@ -144,6 +146,11 @@ export declare interface Route {
 }
 
 export declare type Router = Record<string, Route | string>;
+
+export declare interface RouterOptions {
+    provide?: Provide;
+    base?: string;
+}
 
 export declare interface SerializedRoute extends Route {
     path: string;

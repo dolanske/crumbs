@@ -1,11 +1,11 @@
 import { onNavigation, onNavigationCbs, onPathNavigationCbs, onPathRouteResolveCbs, onRouteError, onRouteErrorcbs, onRoutePathErrorCbs, onRouteResolve, onRouteResolveCbs, runOnNavigationCallbacks, runOnRouteErrorCallbacks, runOnRouteResolveCallbacks } from './events'
 import { createModuleUrl } from './page-module-url'
 import { extractScript, getPageRootElements, parseToHtml } from './parse'
-import { currentLocation, decodeSegment, isDynamic, normalizePath } from './path'
+import { currentLocation, decodeSegment, getBase, isDynamic, normalizePath, setBase, stripBase, withBase } from './path'
 import { findRoute, isMatching, matchRoute } from './route'
 import type { PageModule, PageMount, Provide } from './types/mount'
 import type { ShallowReadonly } from './types/type-helpers'
-import type { HistoryState, NavigateOptions, ResolvedPathOptions, ResolvedRoute, Route, Router, SerializedRoute } from './types/types'
+import type { HistoryState, NavigateOptions, ResolvedPathOptions, ResolvedRoute, Route, Router, RouterOptions, SerializedRoute } from './types/types'
 
 let __baseRouter: Router = {}
 let __globalProvide: Provide = {}
@@ -26,12 +26,12 @@ function getRoute(): Readonly<ResolvedRoute> | null {
 
 // Creates router by serializing all the provided routes
 
-function defineRouter(definitions: Router, provide?: Provide) {
+function defineRouter(definitions: Router, options: RouterOptions = {}) {
   if (running)
     stop()
 
-  if (provide)
-    __globalProvide = Object.freeze(provide)
+  __globalProvide = Object.freeze(options.provide ?? {})
+  setBase(options.base)
   __baseRouter = Object.freeze(definitions)
 
   routes = Object.entries(definitions).map(([path, route]) => {
@@ -135,20 +135,25 @@ function clickHandler(event: MouseEvent) {
   if (url.origin !== location.origin)
     return
 
+  // Links may point inside the base (`/my-repo/users`) or be written relative
+  // to the app (`/users`)
+  const pathname = stripBase(url.pathname) ?? url.pathname
+
   // Only navigate if link is actually matching, otherwise let the browser
   // handle it
-  if (!matchRoute(routes, url.pathname))
+  if (!matchRoute(routes, pathname))
     return
 
   event.preventDefault()
-  navigate(url.pathname + url.search + url.hash).catch(() => {})
+  navigate(pathname + url.search + url.hash).catch(() => {})
 }
 
 // @internal
 // Find the default route path
 function getDefaultRoute(routes: SerializedRoute[]): string {
   // 1. The current URL matches a route
-  if (matchRoute(routes, location.pathname))
+  const pathname = stripBase(location.pathname)
+  if (pathname !== null && matchRoute(routes, pathname))
     return currentLocation()
 
   // 2. Look for `default` or `/` route
@@ -324,9 +329,9 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
       }
 
       if (replace || finalPath === currentLocation())
-        history.replaceState(state, '', finalPath)
+        history.replaceState(state, '', withBase(finalPath))
       else
-        history.pushState(state, '', finalPath)
+        history.pushState(state, '', withBase(finalPath))
     }
 
     // Run current route's unmount hook if available and reset the module
@@ -398,6 +403,8 @@ async function navigate(path: string, options: NavigateOptions = {}): Promise<Re
 function resetRouter() {
   stop()
   __baseRouter = {}
+  __globalProvide = {}
+  setBase()
   routes = []
   onNavigationCbs.clear()
   onRouteResolveCbs.clear()
@@ -413,6 +420,7 @@ function resetRouter() {
 export {
   // Public API
   getRouterConfig,
+  getBase,
   defineRouter,
   onRouteResolve,
   onNavigation,
@@ -434,5 +442,6 @@ export {
   type Route,
   type Router,
   type NavigateOptions,
+  type RouterOptions,
   type PageMount,
 }
