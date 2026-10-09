@@ -16,6 +16,11 @@ export default function crumbs() {
       if (source.includes('?') || !source.endsWith('.page.html'))
         return null
 
+      // Vite's dependency scanner globs every `*.html` as an entry. Let it handle
+      // pages as plain HTML instead of our virtual module, which it can't load
+      if (options?.scan)
+        return null
+
       const resolved = await this.resolve(source, importer, { ...options, skipSelf: true })
       if (!resolved || resolved.external)
         return null
